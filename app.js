@@ -250,6 +250,23 @@ function heroUpdate(X, t) {
   else if (mode === "top") { hero.cam.position.lerp(b.C.clone().addScaledVector(UPV, R * 1.15).addScaledVector(Fh, -R * 0.45), a); hero.ctl.target.lerp(b.C, a); }
   return n;
 }
+// ---- hero scroll: the paper title sits above the 3D view, then shrinks into the corner as the view grows to full screen
+const heroT = $("heroText"), worldEl = $("world"), heroW = $("watch"), scrimEl = $("scrim"), swBar = document.querySelector(".switch");
+function heroLayout() {
+  const vw = innerWidth, vh = Math.max(620, innerHeight), small = vw < 700, G = Math.max(16, Math.min(40, vw * 0.03));
+  const p = Q.has("p") ? +Q.get("p") : Math.max(0, Math.min(1, (scrollY - heroW.offsetTop) / (0.5 * vh))), e = p * p * (3 - 2 * p);
+  const bw = heroT.offsetWidth, bh = heroT.offsetHeight, x0 = (vw - bw) / 2, y0 = small ? 64 : 78, s1 = small ? 0.62 : Math.max(0.5, Math.min(0.62, 520 / bw));
+  const x = x0 + (G - x0) * e, y = y0 + ((small ? 108 : 96) - y0) * e, sc = 1 + (s1 - 1) * e;
+  heroT.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${sc.toFixed(4)})`;
+  for (const el of heroT.querySelectorAll(".hl")) { const lw = el.offsetWidth; el.style.transform = `translateX(${(((bw - lw) / 2) * (1 - e)).toFixed(1)}px)`; }
+  for (const el of heroT.querySelectorAll(".fade")) { const o = Math.max(0, 1 - e * 1.8); el.style.opacity = o; el.style.visibility = o < 0.02 ? "hidden" : ""; }
+  const top = (y0 + bh + 22) * (1 - e), side = G * (1 - e), bot = 14 * (1 - e);
+  Object.assign(worldEl.style, { top: `${top}px`, left: `${side}px`, right: `${side}px`, bottom: `${bot}px`, borderRadius: `${20 * (1 - e)}px` }); worldEl.classList.toggle("boxed", e < 0.98);
+  scrimEl.style.opacity = e; $("vpane").style.width = small ? (e > 0.6 ? "" : "0px") : `clamp(160px, ${14 + 10 * e}vw, 400px)`; $("vpane").style.opacity = small ? Math.max(0, (e - 0.6) / 0.4) : 1;
+  const inHero = scrollY < heroW.offsetTop + heroW.offsetHeight - vh; swBar.style.opacity = inHero ? Math.max(0, (e - 0.7) / 0.3) : 1; swBar.style.pointerEvents = swBar.style.opacity < 0.5 ? "none" : "";
+}
+let heroRaf = 0; const heroReq = () => { if (!heroRaf) heroRaf = requestAnimationFrame(() => { heroRaf = 0; heroLayout(); }); };
+addEventListener("scroll", heroReq, { passive: true }); addEventListener("resize", heroReq); heroLayout(); document.fonts?.ready.then(heroLayout);
 let tFix = Q.get("t") !== null ? +Q.get("t") : null;           // deep link: open the memory at a moment (until the user plays)
 const tNow = () => (X ? Math.min(tFix ?? (vid.currentTime || 0) * X.speed, X.D.duration) : 0);
 function seekFrom(e) { tFix = null; const r = bar.getBoundingClientRect(); vid.currentTime = (Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * X.D.duration) / X.speed; }

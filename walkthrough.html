@@ -13,7 +13,7 @@
 <script>
 // Approach walkthrough, drawn from the kitchen example's real memory export (assets/hdepic). renderAt(t) is a pure function of
 // t (seconds) so tools/render_walkthrough.py can capture it frame by frame; opened normally, it plays in real time.
-const W = 1920, H = 1080, A = "assets/hdepic/", DUR = 50;
+const W = 1920, H = 1080, A = "assets/hdepic/", DUR = 54;
 const cv = document.getElementById("c"), g = cv.getContext("2d");
 const Q = new URLSearchParams(location.search);
 const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x)), clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
@@ -21,31 +21,31 @@ const span = (t, a, b) => clamp((t - a) / (b - a));                       // 0..
 const hue = (id) => (id * 137.508) % 360, col = (id, a = 1, l = 62) => `hsla(${hue(id)},72%,${l}%,${a})`;
 const FONT = "Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif";
 const loadImg = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
-let D, TASK, frames = [], rect = null, sprite, cloud = [], FI = 36;
+let D, TASK, frames = [], rect = null, sprite, cloud = [], FI = 36, qimg = null;
 
 // ---------------------------------------------------------------- the pipeline strip (top)
 const STEPS = [
-  { k: "video", n: "Egocentric video", s: "any length" },
-  { k: "keys", n: "Keyframes", s: "one every 4 s" },
-  { k: "tag", n: "Tag", s: "Qwen3.5-9B" },
-  { k: "detect", n: "Detect", s: "YOLO-World · SAM3" },
+  { k: "video", n: "Egocentric video", s: "poses supplied or estimated" },
+  { k: "keys", n: "Sampled frames", s: "one every 4 s" },
+  { k: "tag", n: "Name objects", s: "Qwen3.5-9B" },
+  { k: "detect", n: "Detect", s: "YOLO-World · SAM 3" },
   { k: "lift", n: "Lift to 3D", s: "WildDet3D · FastVGGT" },
-  { k: "cluster", n: "Cluster in 3D", s: "per label" },
-  { k: "track", n: "Track & merge", s: "SAM3 tracker" },
-  { k: "memory", n: "Object memory", s: "what · where · when" },
-  { k: "agent", n: "Any agent", s: "search · read · answer" },
+  { k: "cluster", n: "Associate", s: "label + 3D distance" },
+  { k: "track", n: "Re-identify", s: "SAM 3 video tracker" },
+  { k: "memory", n: "Rest segments", s: "persistence + descriptions" },
+  { k: "agent", n: "Answer", s: "records as text, no frames" },
 ];
-const T0 = [0, 3.5, 7.5, 11.5, 15.5, 21, 26, 31.5, 38.5, 46.5];       // start time of each step (last = outro)
+const T0 = [0, 3.5, 7.5, 11.5, 15.5, 21, 26, 31.5, 40, 50];       // start time of each step (last = outro)
 const CAP = {
-  video: "A first-person video comes in, of any length, possibly several recordings stitched together.",
-  keys: "LEDGER reads it as keyframes, one every four seconds.",
-  tag: "An open-vocabulary vision-language model lists the objects in each keyframe.",
-  detect: "Every listed object is found in the frame: a box and a mask for each sighting.",
-  lift: "Each sighting becomes a metric 3D box, placed in one world frame by the camera's pose.",
-  cluster: "Sightings of the same label that agree in 3D are clustered.",
-  track: "A video tracker links clusters that are the same physical object, even under different names.",
-  memory: "The memory: one entry per object, with what it is, where it is in 3D, when it was seen or moved, and where it was.",
-  agent: "Any agent can query it: search by meaning, time or place, read the objects that come back, answer.",
+  video: "LEDGER is built offline from an egocentric recording, with camera poses supplied or estimated.",
+  keys: "It samples one frame every four seconds.",
+  tag: "A vision-language model names the objects in each frame, so objects enter memory whether or not the wearer touches them.",
+  detect: "The names become the detector's vocabulary: a box for every sighting.",
+  lift: "Each sighting becomes a 3D box, placed in the scene's coordinate frame by the camera pose.",
+  cluster: "Observations are matched in time order to existing objects, by label and distance from each object's latest position.",
+  track: "A video tracker re-identifies objects that 3D association split into several tracks.",
+  memory: "Each object's history becomes rest segments: a move is recorded only after repeated evidence, and each segment gets a description.",
+  agent: "At question time the relevant records are retrieved and a language model answers from them as text, without seeing a frame.",
 };
 function stepAt(t) { let k = 0; for (let i = 0; i < STEPS.length; i++) if (t >= T0[i]) k = i; return k; }
 function rr(x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
@@ -145,8 +145,8 @@ function sCluster(t, k) {                                             // every l
   drawCloud(ang, 0.3); const ctr = new Map(); for (const d of allDets) { if (d.cl === undefined) continue; const m = ctr.get(d.cl) || [0, 0, 0, 0]; m[0] += d.world[0]; m[1] += d.world[1]; m[2] += d.world[2]; m[3]++; ctr.set(d.cl, m); }
   for (const d of allDets) { const m = ctr.get(d.cl); const p = m ? d.world.map((v, j) => v + (m[j] / m[3] - v) * c) : d.world; dot(proj(p, ang), m ? 3.2 + 2 * c : 2.4, `hsl(${(d.tag.length * 47 + d.tag.charCodeAt(0) * 13) % 360},70%,60%)`, m ? 0.9 : 0.35 * (1 - c)); }
   panel(STAGE.x + 1220, STAGE.y, STAGE.w - 1220, 760); const F = D.funnel;
-  text(`${Math.round(F.lifted + (F.clusters - F.lifted) * c).toLocaleString()}`, STAGE.x + 1250, STAGE.y + 220, 96, "#fff", 800); text(c < 0.5 ? "sightings in 3D" : "3D clusters", STAGE.x + 1250, STAGE.y + 270, 24, "#8a929d", 500);
-  text("same label + close in 3D", STAGE.x + 1250, STAGE.y + 400, 22, "#cfd3da", 500); text("= one cluster", STAGE.x + 1250, STAGE.y + 432, 22, "#cfd3da", 500);
+  text(`${Math.round(F.lifted + (F.clusters - F.lifted) * c).toLocaleString()}`, STAGE.x + 1250, STAGE.y + 220, 96, "#fff", 800); text(c < 0.5 ? "observations in 3D" : "tracks", STAGE.x + 1250, STAGE.y + 270, 24, "#8a929d", 500);
+  text("same label, close to the", STAGE.x + 1250, STAGE.y + 400, 22, "#cfd3da", 500); text("object's latest position", STAGE.x + 1250, STAGE.y + 432, 22, "#cfd3da", 500); text("= the same object", STAGE.x + 1250, STAGE.y + 464, 22, "#cfd3da", 500);
 }
 function sTrack(t, k) {                                               // clusters of the same object under different names merge
   const OK = ["frying pan", "baking sheet", "chair"], merges = D.objects.filter((o) => new Set(o.tags).size > 1 && OK.includes(o.name)).slice(0, 3), y0 = STAGE.y + 90, F = D.funnel;   // merges checked by eye
@@ -155,47 +155,63 @@ function sTrack(t, k) {                                               // cluster
     names.forEach((n, j) => { const dd = ds.filter((d) => d.tag === n).slice(0, 3), x = STAGE.x + 40 + j * 300 * (1 - m);
       dd.forEach((d, q) => tile(d, x + q * 14 + m * j * 8, y + 20 + q * 5, 120, a, col(o.id))); if (m < 0.9) chip(x, y + 176, n, "#9085e9", 18, a * (1 - m)); });
     text(`${names.join(" + ")}`, STAGE.x + 700, y + 80, 28, "#cfd3da", 600, "left", a); text(`→ one object: ${o.name}`, STAGE.x + 700, y + 120, 28, col(o.id, 1, 70), 700, "left", a * m); });
-  text("tagged under different names, tracked as one", STAGE.x + 40, STAGE.y + 50, 20, "#8a929d", 500);
+  text("split into separate tracks, merged by the video tracker", STAGE.x + 40, STAGE.y + 50, 20, "#8a929d", 500);
   panel(STAGE.x + 1220, STAGE.y, STAGE.w - 1220, 760);
-  text(`${Math.round(F.clusters + (F.objects - F.clusters) * m)}`, STAGE.x + 1250, STAGE.y + 220, 96, "#fff", 800); text(m < 0.5 ? "3D clusters" : "objects in memory", STAGE.x + 1250, STAGE.y + 270, 24, "#8a929d", 500);
+  text(`${Math.round(F.clusters + (F.objects - F.clusters) * m)}`, STAGE.x + 1250, STAGE.y + 220, 96, "#fff", 800); text(m < 0.5 ? "tracks" : "objects in memory", STAGE.x + 1250, STAGE.y + 270, 24, "#8a929d", 500);
   text(`from ${F.detections.toLocaleString()} sightings`, STAGE.x + 1250, STAGE.y + 330, 22, "#8a929d", 500);
 }
 const posAt = (o, t) => { const tr = o.traj; if (!tr.length || t < tr[0][0]) return null; let p = tr[0]; for (const q of tr) { if (q[0] > t) break; p = q; } return p.slice(1); };
-function sMemory(t, k) {                                              // the whole memory over time + one object's card
-  Object.assign(V3, { x: STAGE.x, y: STAGE.y, w: 1100, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, ""); const ang = 0.6 + t * 0.06, tv = k * D.duration;
-  drawCloud(ang, 0.55); let n = 0;
-  for (const o of D.objects) { const p = posAt(o, tv); if (!p) continue; n++; const q = proj(p, ang); dot(q, 6, col(o.id), 1); if (q && o.n_obs >= 8) text(o.name, q[0] + 9, q[1] - 7, 14, "#e9ecf1", 600); }
-  text(`${n} objects · ${Math.floor(tv / 60)}:${String(Math.floor(tv % 60)).padStart(2, "0")}`, V3.x + 22, V3.y + 40, 18, "#9cc3f5", 600);
-  const o = D.objects.find((x) => x.name === "baking sheet") || D.objects[0], ds = byOb.get(o.id) || [], cx = STAGE.x + 1140, cw = STAGE.w - 1140;
-  panel(cx, STAGE.y, cw, 760, "one memory entry"); if (ds[0]) tile(ds[0], cx + 24, STAGE.y + 60, 150, 1, col(o.id));
-  text(o.name, cx + 196, STAGE.y + 100, 34, "#fff", 750); text(`also seen as: ${[...new Set(o.tags)].filter((x) => x !== o.name).join(", ") || "-"}`, cx + 196, STAGE.y + 140, 18, "#c2bbff", 500);
-  text(`seen ${o.n_obs}× · ${Math.floor(o.t[0] / 60)}:${String(Math.floor(o.t[0] % 60)).padStart(2, "0")}–${Math.floor(o.t[1] / 60)}:${String(Math.floor(o.t[1] % 60)).padStart(2, "0")}`, cx + 196, STAGE.y + 176, 18, "#9cc3f5", 500);
-  const desc = (o.summary || (o.segs[0] && o.segs[0].d) || "").split(/(?<=\.)\s/)[0]; wrap(desc, cx + 24, STAGE.y + 260, cw - 48, 21, "#cfd3da", 30);
-  text("where", cx + 24, STAGE.y + 470, 16, "#8a929d", 600); const p = o.traj[o.traj.length - 1]; text(`(${p[1].toFixed(2)}, ${p[2].toFixed(2)}, ${p[3].toFixed(2)}) m`, cx + 24, STAGE.y + 500, 22, "#fff", 600);
-  text("moves", cx + 24, STAGE.y + 560, 16, "#8a929d", 600); text(`${o.segs.length} position${o.segs.length === 1 ? "" : "s"} over time`, cx + 24, STAGE.y + 590, 22, "#fff", 600);
-  const ev = D.events.filter((e) => e.t <= tv).slice(-1)[0]; if (ev) { text("doing", cx + 24, STAGE.y + 650, 16, "#8a929d", 600); wrap(ev.text.replace(/^The camera wearer is /, ""), cx + 24, STAGE.y + 680, cw - 48, 19, "#87e0c0", 26); }
+function sMemory(t, k) {                                              // one object's rest segments (the tongs), then its record
+  const o = D.objects.find((x) => x.id === 8), P = o.traj.map((q) => q.slice(0, 3)), S = o.segs, TAU = 0.3;
+  const B = { x: STAGE.x, y: STAGE.y, w: 1100, h: 760 }; panel(B.x, B.y, B.w, B.h, "top view · the tongs' observations"); const xs = P.map((p) => p[1]), ys = P.map((p) => p[2]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2, sc = Math.min(B.w, B.h) * 0.62 / Math.max(1.0, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const M = (x, y) => [B.x + B.w / 2 + (x - cx) * sc, B.y + B.h / 2 + 30 - (y - cy) * sc];
+  g.globalAlpha = 0.5; for (const p of cloud) { const q = M(p[0], p[1]); if (q[0] < B.x + 4 || q[0] > B.x + B.w - 4 || q[1] < B.y + 44 || q[1] > B.y + B.h - 4) continue; g.fillStyle = p[3]; g.fillRect(q[0] - 1.6, q[1] - 1.6, 3.2, 3.2); } g.globalAlpha = 1;
+  const shown = P.filter((_, i) => k * 1.25 >= (i + 0.5) / P.length * 0.9);
+  S.forEach((sg, si) => { const born = P.findIndex((p) => p[0] >= sg.t[0]); if (shown.length <= born + (si ? 1 : 0)) return; const c = M(sg.w[0], sg.w[1]);
+    g.strokeStyle = si ? "#e8703a" : "#3987e5"; g.lineWidth = 3; g.setLineDash([8, 6]); g.beginPath(); g.arc(c[0], c[1], TAU * sc, 0, 7); g.stroke(); g.setLineDash([]);
+    const ly = si ? c[1] + TAU * sc + 34 : c[1] - TAU * sc - 40; text(`rest segment ${si + 1}`, c[0], ly, 22, si ? "#f0b48f" : "#9cc3f5", 700, "center"); text(`${fmtT(sg.t[0])}–${fmtT(sg.t[1])}`, c[0], ly + 26, 18, "#cfd3da", 500, "center"); });
+  if (S.length > 1 && shown.length >= P.length) { const a = M(S[0].w[0], S[0].w[1]), b = M(S[1].w[0], S[1].w[1]); g.strokeStyle = "#e8703a"; g.lineWidth = 3; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+    const dd = Math.hypot(S[1].w[0] - S[0].w[0], S[1].w[1] - S[0].w[1], S[1].w[2] - S[0].w[2]); text(`moved ${dd.toFixed(2)} m`, (a[0] + b[0]) / 2 + 12, (a[1] + b[1]) / 2 - 10, 22, "#fff", 700); }
+  shown.forEach((p, i) => { const q = M(p[1], p[2]); dot(q, 9, "#fff", 1); dot(q, 6, col(8), 1); text(fmtT(p[0]), q[0] - 18, q[1] - 16, 15, "#e9ecf1", 600); });
+  text("a move is recorded only after repeated observations away from the resting place (radius τ)", B.x + 22, B.y + B.h - 22, 17, "#8a929d", 500);
+  const cx2 = STAGE.x + 1140, cw = STAGE.w - 1140, ds = byOb.get(8) || []; panel(cx2, STAGE.y, cw, 760, "its record in memory");
+  if (ds[0]) tile(ds[0], cx2 + 24, STAGE.y + 56, 110, 1, col(8)); text("tongs", cx2 + 152, STAGE.y + 96, 34, "#fff", 750); text(`seen ${o.n_obs}× · ${fmtT(o.t[0])}–${fmtT(o.t[1])}`, cx2 + 152, STAGE.y + 132, 18, "#9cc3f5", 500);
+  S.forEach((sg, si) => { const a = ease(span(k, 0.45 + si * 0.2, 0.6 + si * 0.2)); if (a <= 0) return; const y = STAGE.y + 210 + si * 250;
+    text(`segment ${si + 1} · ${fmtT(sg.t[0])}–${fmtT(sg.t[1])}`, cx2 + 24, y, 19, si ? "#f0b48f" : "#9cc3f5", 700, "left", a); text(`(${sg.w.map((v) => v.toFixed(2)).join(", ")}) m`, cx2 + 24, y + 32, 19, "#fff", 600, "left", a);
+    g.globalAlpha = a; wrap(`"${(sg.d || "").replace(/^The (outlined )?object is /, "").split(/(?<=\.)\s/)[0]}"`, cx2 + 24, y + 70, cw - 48, 18, "#cfd3da", 26); g.globalAlpha = 1; });
 }
+const fmtT = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 function wrap(s, x, y, w, size, color, lh) { g.font = `500 ${size}px ${FONT}`; let line = "", yy = y; for (const word of s.split(" ")) { const tst = line ? line + " " + word : word; if (g.measureText(tst).width > w && line) { text(line, x, yy, size, color, 500); line = word; yy += lh; } else line = tst; } if (line) text(line, x, yy, size, color, 500); }
-function sAgent(t, k) {                                               // a question, a search into the memory, the answer
-  Object.assign(V3, { x: STAGE.x, y: STAGE.y, w: 1100, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, ""); const ang = 0.6 + t * 0.06, T = TASK;
-  drawCloud(ang, 0.4); const cam = D.camera.filter((_, i) => i % 4 === 0).map((c) => proj(c.slice(1, 4), ang));
-  g.strokeStyle = "#5a6372"; g.lineWidth = 1.5; g.beginPath(); cam.forEach((q, i) => q && (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.stroke();
-  const hits = (T.steps.find((s) => s.kind === "search") || { hits: [] }).hits, ids = new Set(hits.flatMap((h) => h.obs)), sk = ease(span(k, 0.2, 0.45)), ak = ease(span(k, 0.65, 0.85));
-  for (const o of D.objects) { const p = posAt(o, D.duration); if (!p) continue; const lit = ids.has(o.id); dot(proj(p, ang), lit && sk > 0 ? 8 : 4.5, col(o.id), lit ? 1 : sk > 0 ? 0.2 : 0.8); }
-  hits.forEach((h, i) => { const c = D.camera.reduce((b, x) => (Math.abs(x[0] - h.t) < Math.abs(b[0] - h.t) ? x : b)), q = proj(c.slice(1, 4), ang), a = ease(span(k, 0.25 + i * 0.04, 0.35 + i * 0.04)); if (!q || a <= 0) return;
-    dot(q, 9, "#3987e5", a); for (const id of h.obs) { const o = D.objects.find((x) => x.id === id), p = o && posAt(o, D.duration), qq = p && proj(p, ang); if (!qq) continue;
-      g.globalAlpha = a * 0.9; g.strokeStyle = col(id); g.lineWidth = 2.2; g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo((q[0] + qq[0]) / 2, Math.min(q[1], qq[1]) - 60, qq[0], qq[1]); g.stroke(); g.globalAlpha = 1;
-      if (sk > 0.5) text(o.name, qq[0] + 10, qq[1] - 9, 17, "#fff", 700, "left", a); } });
-  const cx = STAGE.x + 1140, cw = STAGE.w - 1140; panel(cx, STAGE.y, cw, 760, "");
-  rr(cx + 24, STAGE.y + 30, cw - 48, 170, 16); g.fillStyle = "#13223a"; g.fill(); g.strokeStyle = "#2b5d9c"; g.stroke(); text("question", cx + 44, STAGE.y + 64, 16, "#9cc3f5", 600);
-  wrap(T.question.replace("the highlighted item", "the oven"), cx + 44, STAGE.y + 104, cw - 90, 26, "#fff", 34);
-  if (sk > 0) { text("searches the memory", cx + 30, STAGE.y + 260, 18, "#9cc3f5", 600, "left", sk); text(`${hits.length} moments · ${ids.size} objects`, cx + 30, STAGE.y + 296, 24, "#fff", 650, "left", sk); }
-  if (ak > 0) { rr(cx + 24, STAGE.y + 360, cw - 48, 120, 16); g.globalAlpha = ak; g.fillStyle = "#0f2a22"; g.fill(); g.strokeStyle = "#22b58a"; g.stroke(); g.globalAlpha = 1;
-    text("answer", cx + 44, STAGE.y + 396, 16, "#87e0c0", 600, "left", ak); text(`✓ ${T.options[T.answer_idx]}`, cx + 44, STAGE.y + 444, 34, "#fff", 750, "left", ak); }
+// LEDGER's own reader on this question (HD-EPIC, GPT-5.4, one call; MARCO/hdepic_logs/final2400/FINAL_gpt_mem_2400.json), records abridged
+const QPT = [-1.84, -0.16, -1.52], RET = [[139, "trash bin", 0.68, 152, "a black trash bin with a lid, on the floor by the counter"],
+  [86, "stove", 0.71, 156, "a gas stove; the oven door is open, revealing a baking tray inside"], [93, "cabinet", 0.78, 156, "a cabinet door beside an open oven"],
+  [85, "oven", 0.88, 156, "a black baking tray being pulled out of an open oven"]];
+function sAgent(t, k) {
+  Object.assign(V3, { x: STAGE.x, y: STAGE.y, w: 1000, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, ""); const ang = 0.9 + t * 0.03, Z = 1 + 0.9 * ease(span(k, 0.15, 0.4)), T = TASK;
+  const c0 = CTR.slice(); CTR = CTR.map((v, j) => v + (QPT[j] - v) * ease(span(k, 0.15, 0.4))); drawCloud(ang, 0.5, Z);
+  const lit = ease(span(k, 0.3, 0.5)), q0 = proj(QPT, ang, Z);
+  for (const o of D.objects) { const p = posAt(o, D.duration); if (!p) continue; const r = RET.find((x) => x[0] === o.id); dot(proj(p, ang, Z), r && lit > 0 ? 9 : 4, col(o.id), r ? 1 : 1 - 0.8 * lit); }
+  if (k > 0.15 && q0) { g.fillStyle = "#e0a21b"; g.shadowColor = "#e0a21b"; g.shadowBlur = 20; g.beginPath(); g.arc(q0[0], q0[1], 11, 0, 7); g.fill(); g.shadowBlur = 0; text("the question's box, in 3D", q0[0] + 16, q0[1] + 34, 18, "#f5c451", 700); }
+  RET.forEach(([id, name, d], i) => { const o = D.objects.find((x) => x.id === id), q = o && proj(posAt(o, D.duration) || o.traj[0].slice(1), ang, Z), a = ease(span(k, 0.3 + i * 0.04, 0.4 + i * 0.04)); if (!q || !q0 || a <= 0) return;
+    g.globalAlpha = a; g.strokeStyle = "#f5c451"; g.setLineDash([6, 6]); g.lineWidth = 2; g.beginPath(); g.moveTo(q0[0], q0[1]); g.lineTo(q[0], q[1]); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+    text(`${name} · ${d.toFixed(2)} m`, q[0] + 12, q[1] - 10, 18, "#fff", 700, "left", a); });
+  CTR = c0;
+  const cx = STAGE.x + 1040, cw = STAGE.w - 1040; panel(cx, STAGE.y, cw, 760, "");
+  rr(cx + 20, STAGE.y + 20, cw - 40, 210, 14); g.fillStyle = "#13223a"; g.fill(); g.strokeStyle = "#2b5d9c"; g.stroke();
+  const r = drawImg(qimg, cx + 32, STAGE.y + 32, 186, 186); if (r && T.box) { g.strokeStyle = "#e0a21b"; g.lineWidth = 3; g.strokeRect(r.x + T.box[0] * r.w, r.y + T.box[1] * r.h, (T.box[2] - T.box[0]) * r.w, (T.box[3] - T.box[1]) * r.h); }
+  text("question at 2:36", cx + 236, STAGE.y + 56, 16, "#9cc3f5", 600); wrap("Which of these objects did the person put in/on the highlighted item?", cx + 236, STAGE.y + 92, cw - 280, 22, "#fff", 30);
+  const ra = ease(span(k, 0.42, 0.5)); text("retrieved records, as text", cx + 24, STAGE.y + 272, 16, "#8a929d", 600, "left", ra);
+  RET.forEach(([id, name, d, ts, desc], i) => { const a = ease(span(k, 0.45 + i * 0.06, 0.52 + i * 0.06)); if (a <= 0) return; const y = STAGE.y + 304 + i * 74;
+    g.globalAlpha = a; g.font = `600 17px ui-monospace, Menlo, monospace`; g.fillStyle = "#f5c451"; g.fillText(`[${i + 1}] ${name} · ${d.toFixed(2)} m · seen at ${ts} s`, cx + 24, y);
+    g.globalAlpha = 1; g.save(); g.globalAlpha = a; wrap(`"${desc}"`, cx + 24, y + 26, cw - 48, 16, "#cfd3da", 22); g.restore(); });
+  const aa = ease(span(k, 0.8, 0.9));
+  if (aa > 0) { text("one language-model call · text only, no frames", cx + 24, STAGE.y + 640, 16, "#8a929d", 600, "left", aa); rr(cx + 20, STAGE.y + 656, cw - 40, 84, 14); g.globalAlpha = aa; g.fillStyle = "#0f2a22"; g.fill(); g.strokeStyle = "#22b58a"; g.stroke(); g.globalAlpha = 1;
+    text(`✓ B. ${T.options[T.answer_idx]}`, cx + 44, STAGE.y + 710, 34, "#fff", 750, "left", aa); }
 }
 function sOutro(t, k) {
-  const a = ease(k * 2); text("LEDGER", W / 2, 470, 34, "#8a929d", 700, "center", a);
-  text("Persistent 3D Object Memory", W / 2, 560, 76, "#fff", 800, "center", a); text("from Egocentric Videos", W / 2, 650, 76, "#9cc3f5", 800, "center", a);
+  const a = ease(k * 2); text("LEDGER", W / 2, 440, 34, "#8a929d", 700, "center", a);
+  text("Never Look Back: Understanding Persistence", W / 2, 540, 64, "#fff", 800, "center", a); text("in 3D Object Memory from Egocentric Videos", W / 2, 625, 64, "#9cc3f5", 800, "center", a);
 }
 const DRAW = [sVideo, sKeys, sTag, sDetect, sLift, sCluster, sTrack, sMemory, sAgent];
 let byOb = new Map();
@@ -209,7 +225,7 @@ function renderAt(t) {
 async function init() {
   D = await fetch(A + "data.json").then((r) => r.json()); TASK = (await fetch(A + "task.json").then((r) => r.json())).tasks[0];
   sprite = await loadImg(A + D.sprite.file); frames = await Promise.all(D.frames.map((_, i) => loadImg(`${A}frames/${String(i).padStart(2, "0")}.jpg`)));
-  rect = await loadImg(`${A}rect/${String(FI).padStart(2, "0")}.jpg`);
+  rect = await loadImg(`${A}rect/${String(FI).padStart(2, "0")}.jpg`); qimg = TASK.qframe ? await loadImg(A + TASK.qframe) : null;
   D.frames.forEach((f, fi) => f.dets.forEach((d) => { if (d.world) allDets.push(d); if (d.ob !== undefined) { if (!byOb.has(d.ob)) byOb.set(d.ob, []); byOb.get(d.ob).push(d); } }));
   const m = await fetch(A + "dense.json").then((r) => r.json()), b = await fetch(A + "dense.bin").then((r) => r.arrayBuffer());   // the fused cloud, subsampled
   const q = new Int16Array(b, 0, m.n * 3), rgb = new Uint8Array(b, m.n * 6, m.n * 3), step = Math.max(1, Math.floor(m.n / 26000)); const top = Math.max(...D.camera.map((c) => c[3])) + 0.45;
