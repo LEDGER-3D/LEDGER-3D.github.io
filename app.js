@@ -5,10 +5,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const resultsP = fetch("assets/results.json").then((r) => r.json()).catch(() => null);   // charts data, requested first
-const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"]];
-const UP = { hdepic: "z", vq3d: "z", ucs: "-y" };                  // which world axis points up
-const HFOV = { hdepic: 100, ucs: 68, vq3d: 92 };                   // drawn field of view of each wearer camera (deg)
-const PT = { hdepic: 0.022, ucs: 0.026, vq3d: 0.034 };             // dense point size (m)
+const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"], ["stitch", "Stitched", "2 videos"]];
+const UP = { hdepic: "z", vq3d: "z", ucs: "-y", stitch: "-y" };    // which world axis points up
+const HFOV = { hdepic: 100, ucs: 68, vq3d: 92, stitch: 68 };       // drawn field of view of each wearer camera (deg)
+const PT = { hdepic: 0.022, ucs: 0.026, vq3d: 0.034, stitch: 0.05 };   // fallback point size (memory units)
 const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 const hue = (id) => (id * 137.508) % 360;
 const col = (id, a = 1, l = 62) => `hsla(${hue(id)},72%,${l}%,${a})`;
@@ -36,7 +36,7 @@ async function loadDense(X) {                                      // Pi3X recon
     if (!m || !b) return null;
     const q = new Int16Array(b, 0, m.n * 3), o = m.offset, s = m.scale;
     const ceil = X.up === "z" ? Math.max(...X.D.camera.map((c) => X.W2T(c.slice(1, 4)).y)) + 0.45 : Infinity;
-    return toThree(X, (i) => (q[i] + 32500) * s + o[i % 3], new Uint8Array(b, m.n * 6, m.n * 3), m.n, ceil);
+    return { ...toThree(X, (i) => (q[i] + 32500) * s + o[i % 3], new Uint8Array(b, m.n * 6, m.n * 3), m.n, ceil), point: m.point };
   } catch (e) { return null; }
 }
 async function getDS(name) {
@@ -126,10 +126,12 @@ class World {
     const rad = (this.rad = Math.max(1.5, box.getSize(new THREE.Vector3()).length() * 0.5)); this.ctr = ctr;
     this.scene.fog = new THREE.Fog(0x060708, rad * 1.5, rad * 5);
     if (X.sparse) this.setCloud(X.sparse, rad * 0.006);
-    X.denseP.then((d) => { if (d && this.X === X) this.setCloud(d, PT[X.name]); });
-    this.pathAll = new THREE.Line(new THREE.BufferGeometry().setFromPoints(camPts), new THREE.LineBasicMaterial({ color: 0x5a6372, transparent: true, opacity: 0.6, fog: false }));
-    this.pathAll.visible = this.showPath; g.add(this.pathAll);
-    this.pathNow = new THREE.Line(new THREE.BufferGeometry().setFromPoints(camPts), new THREE.LineBasicMaterial({ color: 0xffffff, fog: false })); this.pathNow.visible = this.showPath; g.add(this.pathNow);
+    X.denseP.then((d) => { if (d && this.X === X) this.setCloud(d, d.point ? d.point * 2.3 : PT[X.name], true); });
+    const cuts = (X.D.parts || []).slice(1).map((p) => X.D.camera.findIndex((c) => c[0] >= p.t0)), edges = [0, ...cuts, camPts.length];   // no path line across a cut
+    this.paths = edges.slice(0, -1).map((a, i) => { const pts = camPts.slice(a, edges[i + 1]);
+      const all = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x5a6372, transparent: true, opacity: 0.6, fog: false }));
+      const now = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, fog: false }));
+      all.visible = now.visible = this.showPath; g.add(all, now); return { now, a, n: pts.length }; });
     const dot = new THREE.SphereGeometry(rad * 0.009, 16, 12);
     this.nodes = X.D.objects.map((o) => { const m = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: col3(o.id), transparent: true, fog: false }));
       m.visible = false; m.renderOrder = 2; m.userData = { o, born: -1 }; g.add(m); return m; });
@@ -140,12 +142,13 @@ class World {
       return { tube, t: o.segs[1].t[0] }; });
     this.extra = new THREE.Group(); g.add(this.extra); this.overview(true);
   }
-  setCloud(c, size) {
+  setCloud(c, size, dense = false) {                               // fused surface: opaque, chunky splats, sRGB colours linearised
     if (this.cloud) { this.g.remove(this.cloud); this.cloud.geometry.dispose(); this.cloud.material.dispose(); }
     const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(c.pos, 3)); geo.setAttribute("color", new THREE.BufferAttribute(c.rgb, 3, true));
-    const mat = new THREE.PointsMaterial({ size, vertexColors: true, map: DISC, alphaTest: 0.4, transparent: true }), px = (4.5 * this.r.getPixelRatio()).toFixed(1), near = (this.rad * 0.05).toFixed(3);
-    mat.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace("#include <fog_vertex>",                  // close points stay small; the nearest vanish
-      `#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.6, ${px});\n  if (-mvPosition.z < ${near}) gl_PointSize = 0.0;`); };
+    const mat = new THREE.PointsMaterial({ size, vertexColors: true, map: DISC, alphaTest: 0.5, transparent: false });
+    const px = ((dense ? 11 : 4.5) * this.r.getPixelRatio()).toFixed(1), near = (this.rad * 0.05).toFixed(3);
+    mat.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace("#include <color_vertex>", "#include <color_vertex>\n  vColor.rgb = pow(vColor.rgb, vec3(2.2));")
+      .replace("#include <fog_vertex>", `#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.6, ${px});\n  if (-mvPosition.z < ${near}) gl_PointSize = 0.0;`); };   // close points stay small; the nearest vanish
     mat.customProgramCacheKey = () => `cloud${px}_${near}`;
     this.cloud = new THREE.Points(geo, mat); this.g.add(this.cloud);
   }
@@ -166,7 +169,8 @@ class World {
       m.material.opacity = lit ? 1 : 0.12; m.position.copy(this.X.W2T(p)); m.scale.setScalar(s); m.visible = true; n++;
     }
     for (const a of this.arrows) a.tube.visible = t >= a.t && !this.hl && !this.noArrows;
-    const k = this.X.D.camera.findIndex((c) => c[0] > t); this.pathNow.geometry.setDrawRange(0, k === -1 ? this.X.D.camera.length : Math.max(1, k));
+    const k0 = this.X.D.camera.findIndex((c) => c[0] > t), k = k0 === -1 ? this.X.D.camera.length : Math.max(1, k0);
+    for (const p of this.paths) p.now.geometry.setDrawRange(0, Math.max(0, Math.min(p.n, k - p.a)));
     if (this.cloud) this.cloud.material.color.setScalar(this.hl ? 0.5 : 1);          // dim by colour: opacity would push small points under the alpha test
     for (const s of this.extra.children) if (s.isSprite) { const h = (s.userData.h ?? 0.03) * (s.userData.k ?? 1); s.scale.set(h * s.userData.aspect, h, 1); }   // constant on screen
     return n;
@@ -221,7 +225,8 @@ listeners.push((X) => {
   rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, fog: false }));
   rays.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); rays.geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); hero.g.add(rays);
   trail = X.D.frames.map((f, i) => { const fr = frustum(X, camLerp(X, f.t), hero.rad * 0.05, 0x9cc3f5, null, 0.85); fr.visible = false; Object.assign(fr.userData, { t: f.t, src: frameSrc(X, i) }); hero.g.add(fr); return fr; });
-  bar.querySelectorAll(".tick").forEach((e) => e.remove());
+  bar.querySelectorAll(".tick, .cut").forEach((e) => e.remove());
+  for (const p of (X.D.parts || []).slice(1)) { const d = document.createElement("div"); d.className = "cut"; d.style.left = `${(100 * p.t0) / X.D.duration}%`; d.dataset.l = "cut · next video"; bar.appendChild(d); }
   for (const o of X.moves) { const d = document.createElement("div"); d.className = "tick"; d.style.left = `${(100 * o.segs[1].t[0]) / X.D.duration}%`; bar.appendChild(d); }
   $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; setMode(Q.get("mode") || mode); vid.play().catch(() => {});
 });
@@ -566,12 +571,17 @@ async function playTask(X, T, g) {
   const th = document.createElement("div"); th.className = "thread"; feed.appendChild(th); while (feed.children.length > 4) feed.firstChild.remove();
   const add = (cls, html) => { const d = document.createElement("div"); d.className = `msg ${cls}`; d.innerHTML = html; th.appendChild(d);
     setTimeout(() => d.classList.add("in"), 30); feed.scrollTop = feed.scrollHeight; return d; };
-  const qEl = add("q", `<div class="who">${T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video"}</div><div class="qt">${esc(T.question)}</div>` +
+  const when = T.delayed_from !== undefined ? `asked at ${fmt(T.t)} · about ${fmt(T.delayed_from)}, one video earlier` : T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video";
+  const qEl = add("q", `<div class="who">${when}</div><div class="qt">${esc(T.question)}</div>` +
     (T.options ? `<div class="opts">${T.options.map((o, i) => `<div class="opt">${"ABCDE"[i]}. ${esc(o)}</div>`).join("")}</div>` : ""));
   if (T.t !== undefined) {                                          // where and when the question was asked
     const c = camLerp(X, T.t), d = A.rad * 0.09, fr = frustum(X, c, d, 0xe0a21b, null, 1), b = basis(X, c); A.extra.add(fr); popIn(A, fr);
     qTexture(X, T).then((t) => { if (t && g === askGen) { const pl = fr.userData.plane; pl.material.map = t; pl.material.needsUpdate = true; pl.visible = true; } });
-    A.fly(fr.userData.centre, b.C.clone().addScaledVector(b.F, -d * 3.4).addScaledVector(UPV, d * 1.3)); capSet("pin", `asked here, at ${fmt(T.t)}${T.box ? " · about the highlighted item" : ""}`);
+    if (T.delayed_from !== undefined) {                              // re-asked later: "now" and the earlier moment it is about, joined
+      const c2 = camLerp(X, T.delayed_from), fr2 = frustum(X, c2, d, 0x87e0c0, tex(frameSrc(X, nearestFrame(X, T.delayed_from))), 1);
+      A.extra.add(fr2); popIn(A, fr2, 600); link(A, fr.userData.centre, fr2.userData.centre, 0xf5c451, 900); A.fit([fr.userData.C, fr2.userData.C], 1.3);
+      capSet("pin", `asked here at ${fmt(T.t)}, about this moment at ${fmt(T.delayed_from)}: ${Math.round((T.t - T.delayed_from) / 60)} minutes and one other video earlier`);
+    } else { A.fly(fr.userData.centre, b.C.clone().addScaledVector(b.F, -d * 3.4).addScaledVector(UPV, d * 1.3)); capSet("pin", `asked here, at ${fmt(T.t)}${T.box ? " · about the highlighted item" : ""}`); }
   } else { A.overview(); capSet("pin", "asked after the whole video"); }
   await sleep(2600, g);
   const prev = [];
@@ -589,6 +599,53 @@ listeners.push((X) => {
   qdots.innerHTML = ""; L.forEach((T, j) => { const b = document.createElement("button"); b.textContent = j + 1; b.title = T.question; b.onclick = () => jump(X, j); qdots.appendChild(b); });
   jump(X, +(Q.get("q") || 0) % Math.max(1, L.length));
 });
+
+// ================================================================== STITCHED: one memory over two videos (lifelines across the cut)
+const life = $("lifelines"), lg = life.getContext("2d"), ltip = $("lifetip"); let SX = null, lifeRows = [], lifeK = 0, lifeGeo = null, lifeImgs = [];
+new IntersectionObserver((es) => es.forEach(async (e) => { if (!e.isIntersecting || SX) return; SX = await getDS("stitch"); stitchSetup(SX); }), { rootMargin: "600px" }).observe(life);
+function stitchSetup(S) {
+  const D = S.D, parts = D.parts, n0 = D.objects.filter((o) => o.t[0] < parts[1].t0).length;
+  lifeRows = [...D.objects].sort((a, b) => a.t[0] - b.t[0]); lifeK = 0;
+  lifeImgs = []; parts.forEach((p, k) => { const idx = D.frames.map((f, i) => [f.t, i]).filter(([t]) => t >= p.t0 && t < p.t1), m = k ? 16 : 4;   // thumbnails spread over each video
+    for (let j = 0; j < m; j++) { const [t, i] = idx[Math.floor(((j + 0.5) * idx.length) / m)] || []; if (i !== undefined) loadImg(frameSrc(S, i)).then((im) => im && lifeImgs.push({ im, t, k, j, m })); } });
+  $("stitchCounts").innerHTML = parts.map((p, i) => `<span><b>${esc(p.label)}</b> · ${p.t1 - p.t0 < 120 ? Math.round(p.t1 - p.t0) + " s" : Math.round((p.t1 - p.t0) / 60) + " min"} · ${i ? D.objects.length - n0 : n0} objects</span>`).join("") + `<span class="one">→ one memory, ${D.objects.length} objects</span>`;
+  const L = (S.task?.tasks || []).map((T, i) => ({ T, i })).filter(({ T }) => T.delayed_from !== undefined);
+  $("xcards").innerHTML = L.map(({ T, i }) => `<button class="xcard" data-i="${i}"><div class="mini">asked at ${fmt(T.t)} · about ${fmt(T.delayed_from)}</div><div class="xq">${esc(T.question)}</div>
+    <div class="xa"><span class="ic k-answer">${ICON.answer}</span>${esc(T.options[T.answer_idx])} <span class="cons">right in ${T.consistency} runs</span></div></button>`).join("");
+  $("xcards").querySelectorAll(".xcard").forEach((b) => (b.onclick = async () => { await select("stitch"); $("ask").scrollIntoView({ behavior: "smooth" }); jump(X, +b.dataset.i); }));
+  const sizeL = () => { const dpr = Math.min(devicePixelRatio, 2); life.width = life.clientWidth * dpr; life.height = life.clientHeight * dpr; lg.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  new ResizeObserver(sizeL).observe(life); sizeL();
+}
+$("goStitch").onclick = async () => { await select("stitch"); $("watch").scrollIntoView({ behavior: "smooth" }); };
+life.addEventListener("pointermove", (e) => {
+  if (!lifeGeo) return; const r = life.getBoundingClientRect(), y = e.clientY - r.top, x = e.clientX - r.left, g = lifeGeo, i = Math.floor((y - g.top) / g.rh);
+  const o = lifeRows[i]; if (!o || y < g.top || x < g.x0 - 10) { ltip.style.opacity = 0; return; }
+  ltip.innerHTML = `<b style="color:${col(o.id, 1, 70)}">${esc(o.name)}</b> · seen ${o.n_obs}× · ${fmt(o.t[0])}–${fmt(o.t[1])}`; ltip.style.opacity = 1;
+  ltip.style.left = `${Math.min(x + 14, r.width - 220)}px`; ltip.style.top = `${y - 34}px`; g.hover = i;
+});
+life.addEventListener("pointerleave", () => { ltip.style.opacity = 0; if (lifeGeo) lifeGeo.hover = -1; });
+function frameLife(now) {
+  if (!SX || !life.clientWidth) return; const D = SX.D, P = D.parts, W = life.clientWidth, H = life.clientHeight, x0 = 16, x1 = W - 16, gap = 30, thumbH = 54, top = thumbH + 40;
+  const wA = (x1 - x0 - gap) * 0.26, TX = (t) => (t < P[1].t0 ? x0 + (t / P[1].t0) * wA : x0 + wA + gap + ((t - P[1].t0) / (P[1].t1 - P[1].t0)) * (x1 - x0 - wA - gap));
+  const rh = Math.max(1.5, (H - top - 30) / lifeRows.length); lifeGeo = { ...(lifeGeo || {}), top, rh, x0 };
+  const T = ((now / 1000) % 16) / 13, tc = Math.min(1, T) * D.duration;          // a sweep across the stream, every 16 s
+  lg.clearRect(0, 0, W, H);
+  for (const { im, t, k, j, m } of lifeImgs) { const a = k ? x0 + wA + gap : x0, w = (k ? x1 - x0 - wA - gap : wA) / m, h = Math.min(thumbH, (w * im.height) / im.width);
+    lg.globalAlpha = t <= tc ? 0.95 : 0.25; const sw = Math.min(im.width, (im.height * w) / h); lg.drawImage(im, (im.width - sw) / 2, 0, sw, im.height, a + j * w + 1, 4, w - 2, thumbH); }
+  lg.globalAlpha = 1; lg.fillStyle = "#0d0f12"; lg.fillRect(x0 + wA, 0, gap, H);
+  lg.strokeStyle = "#e8703a"; lg.setLineDash([4, 4]); lg.beginPath(); lg.moveTo(x0 + wA + gap / 2, 0); lg.lineTo(x0 + wA + gap / 2, H); lg.stroke(); lg.setLineDash([]);
+  lg.font = "600 12px Inter, -apple-system, sans-serif"; lg.fillStyle = "#cfd3da"; lg.textAlign = "left";
+  lg.fillText(`video 1 · ${P[0].label}`, x0, thumbH + 24); lg.fillText(`video 2 · ${P[1].label}`, x0 + wA + gap, thumbH + 24);
+  lg.fillStyle = "#e8703a"; lg.textAlign = "center"; lg.fillText("cut", x0 + wA + gap / 2, H - 8); lg.textAlign = "left";
+  lifeRows.forEach((o, i) => { if (o.t[0] > tc) return; const y = top + i * rh + rh / 2, a = TX(o.t[0]), b = Math.max(a + 2, TX(Math.min(o.t[1], tc)));
+    if (tc > o.t[1]) { lg.strokeStyle = col(o.id, 0.16, 60); lg.lineWidth = Math.max(1, rh * 0.5); lg.beginPath(); lg.moveTo(b, y); lg.lineTo(TX(tc), y); lg.stroke(); }   // still in memory
+    lg.strokeStyle = col(o.id, i === lifeGeo.hover ? 1 : 0.85, i === lifeGeo.hover ? 75 : 60); lg.lineWidth = Math.max(1.2, rh * (i === lifeGeo.hover ? 1 : 0.7));
+    lg.beginPath(); lg.moveTo(a, y); lg.lineTo(b, y); lg.stroke(); });
+  lg.strokeStyle = "#ffffffaa"; lg.lineWidth = 1; lg.beginPath(); lg.moveTo(TX(tc), thumbH + 6); lg.lineTo(TX(tc), H - 20); lg.stroke();
+  if (T > 1) for (const Tk of (SX.task?.tasks || []).filter((q) => q.delayed_from !== undefined)) {   // recall arcs: asked at the end, about the first video
+    const a = TX(Tk.t), b = TX(Tk.delayed_from), yy = top - 6; lg.strokeStyle = "#f5c451"; lg.lineWidth = 1.6; lg.beginPath(); lg.moveTo(a, yy); lg.bezierCurveTo(a, yy - 30, b, yy - 30, b, yy); lg.stroke();
+    lg.fillStyle = "#f5c451"; lg.beginPath(); lg.arc(b, yy, 3, 0, 7); lg.fill(); }
+}
 
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {
@@ -627,9 +684,10 @@ function loop() {
     const t = tNow();
     if (hero.visible) { const n = heroUpdate(X, t); hero.render(); if (n !== lastCount) { $("count").textContent = `${n} objects in memory`; lastCount = n; } }
     fill.style.width = knob.style.left = `${(100 * t) / X.D.duration}%`; $("time").textContent = `${fmt(t)} / ${fmt(X.D.duration)}`;
-    const ev = eventAt(X, t); if (ev !== lastEv) { $("ticker").textContent = ev ? ev.text : ""; lastEv = ev; }
+    const ev = eventAt(X, t); if (ev !== lastEv) { const pt = (X.D.parts || []).findIndex((p) => t >= p.t0 && t < p.t1 + 0.01);
+      $("ticker").innerHTML = (pt >= 0 ? `<span class="partl">video ${pt + 1} of ${X.D.parts.length} · ${esc(X.D.parts[pt].label)}</span> ` : "") + (ev ? esc(ev.text) : ""); lastEv = ev; }
     if (ask3d.visible) { ask3d.update(askT); ask3d.render(); }
-    frameC();
+    frameC(); frameLife(performance.now());
   }
   requestAnimationFrame(loop);
 }

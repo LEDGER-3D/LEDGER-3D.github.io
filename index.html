@@ -102,6 +102,17 @@
   .bar .track { position:absolute; left:0; right:0; top:15px; height:4px; border-radius:2px; background:#252a32; }
   .bar .fill { position:absolute; left:0; top:15px; height:4px; border-radius:2px; background:var(--blue); }
   .bar .tick { position:absolute; top:9px; width:2px; height:16px; border-radius:1px; background:#e8703a; opacity:.85; }
+  .bar .cut { position:absolute; top:3px; width:3px; height:28px; margin-left:-1px; border-radius:2px; background:#fff; box-shadow:0 0 0 3px #e8703a66; }
+  .bar .cut::after { content:attr(data-l); position:absolute; bottom:30px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:11px; color:#f0b48f; }
+  .partl { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#f0b48f; margin-right:6px; }
+  .stitchc { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 12px; font-size:13px; color:var(--ink2); }
+  .stitchc span { border:1px solid var(--line); border-radius:999px; padding:5px 12px; background:var(--bg2); } .stitchc b { color:#fff; font-weight:600; }
+  .stitchc .one { border-color:#3987e5; color:#cfe3fb; background:#13223a; }
+  .lifew { position:relative; } #lifelines { width:100%; height:440px; display:block; background:var(--panel); border:1px solid var(--line); border-radius:20px; }
+  .xcards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:12px; }
+  .xcard { text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px 14px; color:var(--ink2); cursor:pointer; font:inherit; }
+  .xcard:hover { border-color:#f5c45188; } .xcard .xq { color:#fff; font-size:16px; font-weight:650; margin:4px 0 8px; }
+  .xcard .xa { display:flex; gap:8px; align-items:center; font-size:13px; color:#f5e3b0; }
   .bar .knob { position:absolute; top:9px; width:14px; height:14px; margin-left:-7px; margin-top:1px; border-radius:50%; background:#fff; box-shadow:0 0 0 4px #3987e533; }
   .time { font:12px ui-monospace,Menlo,monospace; color:var(--ink3); width:92px; text-align:right; }
   .hint { font-size:12px; color:var(--ink3); display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; }
@@ -168,7 +179,7 @@
 </script>
 </head>
 <body>
-<nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
+<nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#stitch-s">Stitched</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
 
 <div class="switch"><div id="switch"></div></div>
 <section id="watch" class="heroW">
@@ -191,6 +202,18 @@
       <div class="hint"><span>drag to look around</span><span>hover a dot</span><span>pause, then hover the video</span><span><span style="color:#e8703a">▮</span> an object moved</span><span id="speedNote"></span></div>
     </div>
   </div>
+</section>
+
+<section id="stitch-s" class="wide">
+  <div class="eyebrow">Stitched streams</div>
+  <h2>Two videos.<br><span class="grad">One memory.</span></h2>
+  <div class="csub">A mall clip and a twenty-minute shopping trip, stitched into one stream. LEDGER keeps one memory across the cut, and still answers about the mall twenty minutes later.</div>
+  <div class="stitchc" id="stitchCounts"></div>
+  <div class="lifew"><canvas id="lifelines"></canvas><div class="tip" id="lifetip"></div></div>
+  <div class="hint"><span>one line per memory object: <b style="color:#cfd3da">bright</b> while seen, <b style="color:#666d78">faint</b> while remembered</span><span><span style="color:#f5c451">⌒</span> a question asked at the end about the first video</span><span>hover a line</span></div>
+  <div class="xcards" id="xcards"></div>
+  <div class="btns" style="align-items:center"><button class="btn" id="goStitch" style="cursor:pointer">Watch the stitched stream in 3D ↑</button>
+    <span class="mini">100 stitched streams, 3,244 questions · memory only: <b style="color:#9cc3f5">LEDGER 36.4%</b> · DirectMe 29.6%</span></div>
 </section>
 
 <section id="pipeline">
