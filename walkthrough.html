@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LEDGER approach walkthrough</title>
+<style>
+  html, body { margin:0; background:#07080a; overflow:hidden; }
+  canvas { display:block; width:100vw; height:56.25vw; max-height:100vh; max-width:177.78vh; margin:auto; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+// Approach walkthrough, drawn from the kitchen example's real memory export (assets/hdepic). renderAt(t) is a pure function of
+// t (seconds) so tools/render_walkthrough.py can capture it frame by frame; opened normally, it plays in real time.
+const W = 1920, H = 1080, A = "assets/hdepic/", DUR = 50;
+const cv = document.getElementById("c"), g = cv.getContext("2d");
+const Q = new URLSearchParams(location.search);
+const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x)), clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const span = (t, a, b) => clamp((t - a) / (b - a));                       // 0..1 progress of t through [a, b]
+const hue = (id) => (id * 137.508) % 360, col = (id, a = 1, l = 62) => `hsla(${hue(id)},72%,${l}%,${a})`;
+const FONT = "Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const loadImg = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
+let D, TASK, frames = [], rect = null, sprite, cloud = [], FI = 36;
+
+// ---------------------------------------------------------------- the pipeline strip (top)
+const STEPS = [
+  { k: "video", n: "Egocentric video", s: "any length" },
+  { k: "keys", n: "Keyframes", s: "one every 4 s" },
+  { k: "tag", n: "Tag", s: "Qwen3.5-9B" },
+  { k: "detect", n: "Detect", s: "YOLO-World · SAM3" },
+  { k: "lift", n: "Lift to 3D", s: "WildDet3D · FastVGGT" },
+  { k: "cluster", n: "Cluster in 3D", s: "per label" },
+  { k: "track", n: "Track & merge", s: "SAM3 tracker" },
+  { k: "memory", n: "Object memory", s: "what · where · when" },
+  { k: "agent", n: "Any agent", s: "search · read · answer" },
+];
+const T0 = [0, 3.5, 7.5, 11.5, 15.5, 21, 26, 31.5, 38.5, 46.5];       // start time of each step (last = outro)
+const CAP = {
+  video: "A first-person video comes in, of any length, possibly several recordings stitched together.",
+  keys: "LEDGER reads it as keyframes, one every four seconds.",
+  tag: "An open-vocabulary vision-language model lists the objects in each keyframe.",
+  detect: "Every listed object is found in the frame: a box and a mask for each sighting.",
+  lift: "Each sighting becomes a metric 3D box, placed in one world frame by the camera's pose.",
+  cluster: "Sightings of the same label that agree in 3D are clustered.",
+  track: "A video tracker links clusters that are the same physical object, even under different names.",
+  memory: "The memory: one entry per object, with what it is, where it is in 3D, when it was seen or moved, and where it was.",
+  agent: "Any agent can query it: search by meaning, time or place, read the objects that come back, answer.",
+};
+function stepAt(t) { let k = 0; for (let i = 0; i < STEPS.length; i++) if (t >= T0[i]) k = i; return k; }
+function rr(x, y, w, h, r) { g.beginPath(); g.roundRect(x, y, w, h, r); }
+function text(s, x, y, size, color = "#fff", weight = 600, align = "left", alpha = 1) {
+  g.globalAlpha = alpha; g.font = `${weight} ${size}px ${FONT}`; g.fillStyle = color; g.textAlign = align; g.fillText(s, x, y); g.globalAlpha = 1; g.textAlign = "left";
+}
+function strip(t) {
+  const n = STEPS.length, x0 = 60, x1 = W - 60, gap = 26, bw = (x1 - x0 - gap * (n - 1)) / n, y = 70, bh = 96, cur = stepAt(t), intro = span(t, 0.2, 2.6);
+  for (let i = 0; i < n; i++) {
+    const x = x0 + i * (bw + gap), appear = ease(span(intro * n - i, 0, 1)), on = i === cur && t < T0[STEPS.length], done = i < cur;
+    g.globalAlpha = appear * (on ? 1 : done ? 0.75 : 0.32);
+    rr(x, y, bw, bh, 14); g.fillStyle = on ? "#13223a" : "#101318"; g.fill(); g.lineWidth = on ? 2.5 : 1.2; g.strokeStyle = on ? "#3987e5" : "#2a3038"; g.stroke();
+    if (on) { g.shadowColor = "#3987e5"; g.shadowBlur = 24; rr(x, y, bw, bh, 14); g.stroke(); g.shadowBlur = 0; }
+    text(STEPS[i].n, x + bw / 2, y + 44, 21, "#fff", 650, "center", g.globalAlpha); text(STEPS[i].s, x + bw / 2, y + 72, 15, on ? "#9cc3f5" : "#8a929d", 500, "center", g.globalAlpha);
+    g.globalAlpha = 1;
+    if (i < n - 1) {                                                   // arrow, with a packet running along it at each hand-over
+      const ax = x + bw + 4, ay = y + bh / 2; g.globalAlpha = appear * 0.6; g.strokeStyle = "#5a6372"; g.lineWidth = 2; g.beginPath(); g.moveTo(ax, ay); g.lineTo(ax + gap - 8, ay); g.stroke();
+      g.beginPath(); g.moveTo(ax + gap - 8, ay - 5); g.lineTo(ax + gap - 2, ay); g.lineTo(ax + gap - 8, ay + 5); g.fillStyle = "#5a6372"; g.fill(); g.globalAlpha = 1;
+      const k = span(t, T0[i + 1] - 0.5, T0[i + 1] + 0.2);
+      if (k > 0 && k < 1) { g.fillStyle = "#ffffff"; g.shadowColor = "#9cc3f5"; g.shadowBlur = 16; g.beginPath(); g.arc(ax + (gap - 4) * k, ay, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
+    }
+  }
+}
+function caption(t) {
+  const i = stepAt(t); if (t >= T0[STEPS.length]) return; const a = Math.min(span(t, T0[i], T0[i] + 0.5), 1 - span(t, T0[i + 1] - 0.35, T0[i + 1]));
+  text(`${i + 1}`, 90, 1040, 22, "#3987e5", 800, "left", a); text(CAP[STEPS[i].k], 125, 1040, 26, "#d6dbe2", 500, "left", a);
+}
+
+// ---------------------------------------------------------------- stage helpers
+const STAGE = { x: 60, y: 210, w: W - 120, h: 770 };
+function panel(x, y, w, h, label) { rr(x, y, w, h, 18); g.fillStyle = "#0d1014"; g.fill(); g.strokeStyle = "#22272f"; g.lineWidth = 1.2; g.stroke(); if (label) text(label, x + 18, y + 32, 15, "#8a929d", 600); }
+function drawImg(im, x, y, w, h, alpha = 1) { if (!im) return; g.globalAlpha = alpha; const s = Math.min(w / im.width, h / im.height), dw = im.width * s, dh = im.height * s; g.drawImage(im, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); g.globalAlpha = 1; return { x: x + (w - dw) / 2, y: y + (h - dh) / 2, w: dw, h: dh }; }
+function chip(x, y, s, c = "#e0a21b", size = 18, alpha = 1) {
+  g.globalAlpha = alpha; g.font = `600 ${size}px ${FONT}`; const w = g.measureText(s).width + 22, h = size + 14;
+  rr(x, y - h, w, h, h / 2); g.fillStyle = "rgba(10,12,15,.85)"; g.fill(); g.strokeStyle = c; g.lineWidth = 2; g.stroke(); g.fillStyle = "#fff"; g.fillText(s, x + 11, y - h / 2 + size * 0.36); g.globalAlpha = 1; return w;
+}
+function tile(det, x, y, s, alpha = 1, ring = null) {
+  const T = D.sprite.tile, c = D.sprite.cols; g.globalAlpha = alpha; g.drawImage(sprite, (det.id % c) * T, Math.floor(det.id / c) * T, T, T, x, y, s, s);
+  if (ring) { g.strokeStyle = ring; g.lineWidth = 2; g.strokeRect(x, y, s, s); } g.globalAlpha = 1;
+}
+// a simple orbiting 3D view of the kitchen (z up) for steps 4-8
+const V3 = { x: 0, y: 0, w: 0, h: 0 };
+let CTR = [0, 0, 0], RAD = 3;
+function proj(p, ang, zoom = 1) {
+  const dx = p[0] - CTR[0], dy = p[1] - CTR[1], dz = p[2] - CTR[2], ca = Math.cos(ang), sa = Math.sin(ang);
+  const x = dx * ca - dy * sa, y = dx * sa + dy * ca, el = 0.62, ce = Math.cos(el), se = Math.sin(el);
+  const yv = y * ce - dz * se, zv = y * se + dz * ce, dist = RAD * 2.3 / zoom, d = dist - yv; if (d < 0.1) return null;
+  const f = V3.h * 1.05 / (RAD * 2.3 / zoom) * dist; return [V3.x + V3.w / 2 + (f * x) / d, V3.y + V3.h * 0.56 - (f * zv) / d, d];
+}
+function drawCloud(ang, alpha, zoom = 1) {
+  g.globalAlpha = alpha;
+  for (const p of cloud) { const q = proj(p, ang, zoom); if (!q || q[0] < V3.x || q[0] > V3.x + V3.w || q[1] < V3.y || q[1] > V3.y + V3.h) continue; g.fillStyle = p[3]; g.fillRect(q[0] - 1.4, q[1] - 1.4, 2.8, 2.8); }
+  g.globalAlpha = 1;
+}
+function dot(q, r, c, alpha = 1) { if (!q) return; g.globalAlpha = alpha; g.fillStyle = c; g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fill(); g.globalAlpha = 1; }
+
+// ---------------------------------------------------------------- steps
+function sVideo(t, k) {                                               // the video plays, a long strip of frames slides by
+  const { x, y, w, h } = STAGE, fh = 300, fw = fh, n = frames.length, off = (t * 140) % (fw + 14);
+  for (let i = -1; i < 8; i++) { const fi = ((Math.floor(t * 140 / (fw + 14)) + i) % n + n) % n; drawImg(frames[fi], x + i * (fw + 14) - off, y + 180, fw, fh, 0.55 + 0.45 * ease(k * 2)); }
+  text("one continuous first-person recording", x + w / 2, y + 560, 22, "#8a929d", 500, "center");
+}
+function sKeys(t, k) {                                                // frames every 4 s pop out of the stream into a grid
+  const { x, y, w } = STAGE, cols = 11, s = (w - 10 * 10) / cols;
+  frames.forEach((im, i) => { const a = ease(span(k * 1.4 - i / frames.length, 0, 0.35)); if (a <= 0) return; const r = Math.floor(i / cols), c = i % cols;
+    drawImg(im, x + c * (s + 10), y + 10 + r * (s * 0.98 + 10) + (1 - a) * 30, s, s * 0.98, a);
+    text(`${Math.floor(D.frames[i].t / 60)}:${String(Math.floor(D.frames[i].t % 60)).padStart(2, "0")}`, x + c * (s + 10) + 6, y + 10 + r * (s * 0.98 + 10) + s * 0.98 - 8, 14, "#fff", 600, "left", a * 0.9); });
+}
+function frameBox() { return { x: STAGE.x, y: STAGE.y, w: 760, h: 760 }; }
+function sTag(t, k) {
+  const B = frameBox(), r = drawImg(frames[FI], B.x, B.y, B.w, B.h); panel(B.x + 820, B.y, STAGE.w - 820, 760, "tags for this keyframe");
+  const tags = D.frames[FI].tags; let cx = B.x + 850, cy = B.y + 100;
+  tags.forEach((tg, i) => { const a = ease(span(k * 1.3 - i / tags.length * 0.8, 0, 0.12)); if (a <= 0) return; g.font = `600 22px ${FONT}`; const w = g.measureText(tg).width + 26;
+    if (cx + w > STAGE.x + STAGE.w - 30) { cx = B.x + 850; cy += 54; } chip(cx, cy + (1 - a) * 12, tg, "#e0a21b", 22, a); cx += w + 12; });
+}
+function sDetect(t, k) {
+  const B = frameBox(), r = drawImg(frames[FI], B.x, B.y, B.w, B.h), dets = D.frames[FI].dets.filter((d) => d.s > 0.2);
+  dets.forEach((d, i) => { const a = ease(span(k * 1.4 - i / dets.length, 0, 0.15)); if (a <= 0) return; g.globalAlpha = a; g.strokeStyle = "#3987e5"; g.lineWidth = 3;
+    g.strokeRect(r.x + d.box[0] * r.w, r.y + d.box[1] * r.h, (d.box[2] - d.box[0]) * r.w, (d.box[3] - d.box[1]) * r.h); g.globalAlpha = 1;
+    if (d.s > 0.35) chip(r.x + d.box[0] * r.w, r.y + d.box[1] * r.h, `${d.tag} ${d.s.toFixed(2)}`, "#3987e5", 15, a); });
+  panel(B.x + 820, B.y, STAGE.w - 820, 760, "sightings, one per box"); const s = 76, cols = Math.floor((STAGE.w - 860) / (s + 8));
+  dets.forEach((d, i) => { const a = ease(span(k * 1.4 - i / dets.length, 0.05, 0.2)); if (a > 0) tile(d, B.x + 850 + (i % cols) * (s + 8), B.y + 60 + Math.floor(i / cols) * (s + 26), s, a, "#3987e5"); });
+}
+function sLift(t, k) {                                                // 3D boxes in the (undistorted) frame, then the boxes' centres fly into the world
+  const B = { x: STAGE.x, y: STAGE.y, w: 760, h: 760 }, r = drawImg(rect || frames[FI], B.x, B.y, B.w, B.h); g.save(); g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+  const dets = D.frames[FI].dets.filter((d) => d.b3 && d.world), E = [[0, 1], [1, 5], [5, 4], [4, 0], [2, 3], [3, 7], [7, 6], [6, 2], [0, 2], [1, 3], [4, 6], [5, 7]];
+  dets.forEach((d, i) => { const a = ease(span(k * 2 - i / dets.length, 0, 0.2)); if (a <= 0) return; const P = d.b3.map(([u, v]) => [r.x + u * r.w, r.y + v * r.h]);
+    g.globalAlpha = a; g.strokeStyle = col(d.ob ?? i, 1, 64); g.lineWidth = 2.4; for (const [p, q] of E) { g.beginPath(); g.moveTo(...P[p]); g.lineTo(...P[q]); g.stroke(); } g.globalAlpha = 1; }); g.restore();
+  Object.assign(V3, { x: STAGE.x + 820, y: STAGE.y, w: STAGE.w - 820, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, "one world frame"); const ang = 0.6 + t * 0.06;
+  drawCloud(ang, 0.25 + 0.5 * ease(span(k, 0.3, 0.8))); const fly = ease(span(k, 0.45, 0.85));
+  dets.forEach((d, i) => { const P = d.b3.map(([u, v]) => [r.x + u * r.w, r.y + v * r.h]), c0 = [P.reduce((s, p) => s + p[0], 0) / 8, P.reduce((s, p) => s + p[1], 0) / 8], q = proj(d.world, ang); if (!q) return;
+    dot([c0[0] + (q[0] - c0[0]) * fly, c0[1] + (q[1] - c0[1]) * fly], 5, col(d.ob ?? i, 1, 62), fly > 0 ? 1 : 0); });
+}
+let allDets = [];
+function sCluster(t, k) {                                             // every lifted sighting in 3D, coloured by label, pulled together into clusters
+  Object.assign(V3, { x: STAGE.x, y: STAGE.y, w: 1180, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, ""); const ang = 0.6 + t * 0.06, c = ease(span(k, 0.25, 0.8));
+  drawCloud(ang, 0.3); const ctr = new Map(); for (const d of allDets) { if (d.cl === undefined) continue; const m = ctr.get(d.cl) || [0, 0, 0, 0]; m[0] += d.world[0]; m[1] += d.world[1]; m[2] += d.world[2]; m[3]++; ctr.set(d.cl, m); }
+  for (const d of allDets) { const m = ctr.get(d.cl); const p = m ? d.world.map((v, j) => v + (m[j] / m[3] - v) * c) : d.world; dot(proj(p, ang), m ? 3.2 + 2 * c : 2.4, `hsl(${(d.tag.length * 47 + d.tag.charCodeAt(0) * 13) % 360},70%,60%)`, m ? 0.9 : 0.35 * (1 - c)); }
+  panel(STAGE.x + 1220, STAGE.y, STAGE.w - 1220, 760); const F = D.funnel;
+  text(`${Math.round(F.lifted + (F.clusters - F.lifted) * c).toLocaleString()}`, STAGE.x + 1250, STAGE.y + 220, 96, "#fff", 800); text(c < 0.5 ? "sightings in 3D" : "3D clusters", STAGE.x + 1250, STAGE.y + 270, 24, "#8a929d", 500);
+  text("same label + close in 3D", STAGE.x + 1250, STAGE.y + 400, 22, "#cfd3da", 500); text("= one cluster", STAGE.x + 1250, STAGE.y + 432, 22, "#cfd3da", 500);
+}
+function sTrack(t, k) {                                               // clusters of the same object under different names merge
+  const OK = ["frying pan", "baking sheet", "chair"], merges = D.objects.filter((o) => new Set(o.tags).size > 1 && OK.includes(o.name)).slice(0, 3), y0 = STAGE.y + 90, F = D.funnel;   // merges checked by eye
+  panel(STAGE.x, STAGE.y, 1180, 760, ""); const m = ease(span(k, 0.3, 0.75));
+  merges.forEach((o, i) => { const ds = (byOb.get(o.id) || []), names = [...new Set(o.tags)], y = y0 + i * 140, a = ease(span(k * 1.5 - i * 0.12, 0, 0.2)); if (a <= 0) return;
+    names.forEach((n, j) => { const dd = ds.filter((d) => d.tag === n).slice(0, 3), x = STAGE.x + 40 + j * 300 * (1 - m);
+      dd.forEach((d, q) => tile(d, x + q * 14 + m * j * 8, y + 20 + q * 5, 120, a, col(o.id))); if (m < 0.9) chip(x, y + 176, n, "#9085e9", 18, a * (1 - m)); });
+    text(`${names.join(" + ")}`, STAGE.x + 700, y + 80, 28, "#cfd3da", 600, "left", a); text(`→ one object: ${o.name}`, STAGE.x + 700, y + 120, 28, col(o.id, 1, 70), 700, "left", a * m); });
+  text("tagged under different names, tracked as one", STAGE.x + 40, STAGE.y + 50, 20, "#8a929d", 500);
+  panel(STAGE.x + 1220, STAGE.y, STAGE.w - 1220, 760);
+  text(`${Math.round(F.clusters + (F.objects - F.clusters) * m)}`, STAGE.x + 1250, STAGE.y + 220, 96, "#fff", 800); text(m < 0.5 ? "3D clusters" : "objects in memory", STAGE.x + 1250, STAGE.y + 270, 24, "#8a929d", 500);
+  text(`from ${F.detections.toLocaleString()} sightings`, STAGE.x + 1250, STAGE.y + 330, 22, "#8a929d", 500);
+}
+const posAt = (o, t) => { const tr = o.traj; if (!tr.length || t < tr[0][0]) return null; let p = tr[0]; for (const q of tr) { if (q[0] > t) break; p = q; } return p.slice(1); };
+function sMemory(t, k) {                                              // the whole memory over time + one object's card
+  Object.assign(V3, { x: STAGE.x, y: STAGE.y, w: 1100, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, ""); const ang = 0.6 + t * 0.06, tv = k * D.duration;
+  drawCloud(ang, 0.55); let n = 0;
+  for (const o of D.objects) { const p = posAt(o, tv); if (!p) continue; n++; const q = proj(p, ang); dot(q, 6, col(o.id), 1); if (q && o.n_obs >= 8) text(o.name, q[0] + 9, q[1] - 7, 14, "#e9ecf1", 600); }
+  text(`${n} objects · ${Math.floor(tv / 60)}:${String(Math.floor(tv % 60)).padStart(2, "0")}`, V3.x + 22, V3.y + 40, 18, "#9cc3f5", 600);
+  const o = D.objects.find((x) => x.name === "baking sheet") || D.objects[0], ds = byOb.get(o.id) || [], cx = STAGE.x + 1140, cw = STAGE.w - 1140;
+  panel(cx, STAGE.y, cw, 760, "one memory entry"); if (ds[0]) tile(ds[0], cx + 24, STAGE.y + 60, 150, 1, col(o.id));
+  text(o.name, cx + 196, STAGE.y + 100, 34, "#fff", 750); text(`also seen as: ${[...new Set(o.tags)].filter((x) => x !== o.name).join(", ") || "-"}`, cx + 196, STAGE.y + 140, 18, "#c2bbff", 500);
+  text(`seen ${o.n_obs}× · ${Math.floor(o.t[0] / 60)}:${String(Math.floor(o.t[0] % 60)).padStart(2, "0")}–${Math.floor(o.t[1] / 60)}:${String(Math.floor(o.t[1] % 60)).padStart(2, "0")}`, cx + 196, STAGE.y + 176, 18, "#9cc3f5", 500);
+  const desc = (o.summary || (o.segs[0] && o.segs[0].d) || "").split(/(?<=\.)\s/)[0]; wrap(desc, cx + 24, STAGE.y + 260, cw - 48, 21, "#cfd3da", 30);
+  text("where", cx + 24, STAGE.y + 470, 16, "#8a929d", 600); const p = o.traj[o.traj.length - 1]; text(`(${p[1].toFixed(2)}, ${p[2].toFixed(2)}, ${p[3].toFixed(2)}) m`, cx + 24, STAGE.y + 500, 22, "#fff", 600);
+  text("moves", cx + 24, STAGE.y + 560, 16, "#8a929d", 600); text(`${o.segs.length} position${o.segs.length === 1 ? "" : "s"} over time`, cx + 24, STAGE.y + 590, 22, "#fff", 600);
+  const ev = D.events.filter((e) => e.t <= tv).slice(-1)[0]; if (ev) { text("doing", cx + 24, STAGE.y + 650, 16, "#8a929d", 600); wrap(ev.text.replace(/^The camera wearer is /, ""), cx + 24, STAGE.y + 680, cw - 48, 19, "#87e0c0", 26); }
+}
+function wrap(s, x, y, w, size, color, lh) { g.font = `500 ${size}px ${FONT}`; let line = "", yy = y; for (const word of s.split(" ")) { const tst = line ? line + " " + word : word; if (g.measureText(tst).width > w && line) { text(line, x, yy, size, color, 500); line = word; yy += lh; } else line = tst; } if (line) text(line, x, yy, size, color, 500); }
+function sAgent(t, k) {                                               // a question, a search into the memory, the answer
+  Object.assign(V3, { x: STAGE.x, y: STAGE.y, w: 1100, h: 760 }); panel(V3.x, V3.y, V3.w, V3.h, ""); const ang = 0.6 + t * 0.06, T = TASK;
+  drawCloud(ang, 0.4); const cam = D.camera.filter((_, i) => i % 4 === 0).map((c) => proj(c.slice(1, 4), ang));
+  g.strokeStyle = "#5a6372"; g.lineWidth = 1.5; g.beginPath(); cam.forEach((q, i) => q && (i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]))); g.stroke();
+  const hits = (T.steps.find((s) => s.kind === "search") || { hits: [] }).hits, ids = new Set(hits.flatMap((h) => h.obs)), sk = ease(span(k, 0.2, 0.45)), ak = ease(span(k, 0.65, 0.85));
+  for (const o of D.objects) { const p = posAt(o, D.duration); if (!p) continue; const lit = ids.has(o.id); dot(proj(p, ang), lit && sk > 0 ? 8 : 4.5, col(o.id), lit ? 1 : sk > 0 ? 0.2 : 0.8); }
+  hits.forEach((h, i) => { const c = D.camera.reduce((b, x) => (Math.abs(x[0] - h.t) < Math.abs(b[0] - h.t) ? x : b)), q = proj(c.slice(1, 4), ang), a = ease(span(k, 0.25 + i * 0.04, 0.35 + i * 0.04)); if (!q || a <= 0) return;
+    dot(q, 9, "#3987e5", a); for (const id of h.obs) { const o = D.objects.find((x) => x.id === id), p = o && posAt(o, D.duration), qq = p && proj(p, ang); if (!qq) continue;
+      g.globalAlpha = a * 0.9; g.strokeStyle = col(id); g.lineWidth = 2.2; g.beginPath(); g.moveTo(q[0], q[1]); g.quadraticCurveTo((q[0] + qq[0]) / 2, Math.min(q[1], qq[1]) - 60, qq[0], qq[1]); g.stroke(); g.globalAlpha = 1;
+      if (sk > 0.5) text(o.name, qq[0] + 10, qq[1] - 9, 17, "#fff", 700, "left", a); } });
+  const cx = STAGE.x + 1140, cw = STAGE.w - 1140; panel(cx, STAGE.y, cw, 760, "");
+  rr(cx + 24, STAGE.y + 30, cw - 48, 170, 16); g.fillStyle = "#13223a"; g.fill(); g.strokeStyle = "#2b5d9c"; g.stroke(); text("question", cx + 44, STAGE.y + 64, 16, "#9cc3f5", 600);
+  wrap(T.question.replace("the highlighted item", "the oven"), cx + 44, STAGE.y + 104, cw - 90, 26, "#fff", 34);
+  if (sk > 0) { text("searches the memory", cx + 30, STAGE.y + 260, 18, "#9cc3f5", 600, "left", sk); text(`${hits.length} moments · ${ids.size} objects`, cx + 30, STAGE.y + 296, 24, "#fff", 650, "left", sk); }
+  if (ak > 0) { rr(cx + 24, STAGE.y + 360, cw - 48, 120, 16); g.globalAlpha = ak; g.fillStyle = "#0f2a22"; g.fill(); g.strokeStyle = "#22b58a"; g.stroke(); g.globalAlpha = 1;
+    text("answer", cx + 44, STAGE.y + 396, 16, "#87e0c0", 600, "left", ak); text(`✓ ${T.options[T.answer_idx]}`, cx + 44, STAGE.y + 444, 34, "#fff", 750, "left", ak); }
+}
+function sOutro(t, k) {
+  const a = ease(k * 2); text("LEDGER", W / 2, 470, 34, "#8a929d", 700, "center", a);
+  text("Persistent 3D Object Memory", W / 2, 560, 76, "#fff", 800, "center", a); text("from Egocentric Videos", W / 2, 650, 76, "#9cc3f5", 800, "center", a);
+}
+const DRAW = [sVideo, sKeys, sTag, sDetect, sLift, sCluster, sTrack, sMemory, sAgent];
+let byOb = new Map();
+
+function renderAt(t) {
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = "#07080a"; g.fillRect(0, 0, W, H);
+  if (t >= T0[STEPS.length]) { sOutro(t, span(t, T0[STEPS.length], DUR)); return; }
+  strip(t); const i = stepAt(t), k = span(t, T0[i], T0[i + 1]), fade = Math.min(span(t, T0[i], T0[i] + 0.45), 1 - span(t, T0[i + 1] - 0.3, T0[i + 1]));
+  g.globalAlpha = 1; g.save(); g.globalAlpha = fade; DRAW[i](t, k); g.restore(); caption(t);
+}
+async function init() {
+  D = await fetch(A + "data.json").then((r) => r.json()); TASK = (await fetch(A + "task.json").then((r) => r.json())).tasks[0];
+  sprite = await loadImg(A + D.sprite.file); frames = await Promise.all(D.frames.map((_, i) => loadImg(`${A}frames/${String(i).padStart(2, "0")}.jpg`)));
+  rect = await loadImg(`${A}rect/${String(FI).padStart(2, "0")}.jpg`);
+  D.frames.forEach((f, fi) => f.dets.forEach((d) => { if (d.world) allDets.push(d); if (d.ob !== undefined) { if (!byOb.has(d.ob)) byOb.set(d.ob, []); byOb.get(d.ob).push(d); } }));
+  const m = await fetch(A + "dense.json").then((r) => r.json()), b = await fetch(A + "dense.bin").then((r) => r.arrayBuffer());   // the fused cloud, subsampled
+  const q = new Int16Array(b, 0, m.n * 3), rgb = new Uint8Array(b, m.n * 6, m.n * 3), step = Math.max(1, Math.floor(m.n / 26000)); const top = Math.max(...D.camera.map((c) => c[3])) + 0.45;
+  for (let i = 0; i < m.n; i += step) { const p = [0, 1, 2].map((j) => (q[3 * i + j] + 32500) * m.scale + m.offset[j]); if (p[2] > top) continue; cloud.push([p[0], p[1], p[2], `rgb(${rgb[3 * i]},${rgb[3 * i + 1]},${rgb[3 * i + 2]})`]); }
+  const ps = D.objects.flatMap((o) => o.traj.map((p) => p.slice(1))); CTR = [0, 1, 2].map((j) => ps.reduce((s, p) => s + p[j], 0) / ps.length);
+  RAD = Math.max(1.5, Math.sqrt(ps.reduce((s, p) => s + (p[0] - CTR[0]) ** 2 + (p[1] - CTR[1]) ** 2, 0) / ps.length) * 1.6);
+  window.READY = true; window.DUR = DUR;
+  if (!Q.has("render")) { const t0 = performance.now(); const loop = () => { renderAt(((performance.now() - t0) / 1000) % DUR); requestAnimationFrame(loop); }; loop(); }
+  else renderAt(+Q.get("t") || 0);
+}
+window.renderAt = renderAt; init();
+</script>
+</body>
+</html>

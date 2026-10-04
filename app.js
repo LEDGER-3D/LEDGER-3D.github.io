@@ -5,6 +5,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const resultsP = fetch("assets/results.json").then((r) => r.json()).catch(() => null);   // charts data, requested first
+const trackP = fetch("assets/stitch/track/track.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"], ["stitch", "Stitched", "2 videos"]];
 const UP = { hdepic: "z", vq3d: "z", ucs: "-y", stitch: "-y" };    // which world axis points up
 const HFOV = { hdepic: 100, ucs: 68, vq3d: 92, stitch: 68 };       // drawn field of view of each wearer camera (deg)
@@ -643,6 +644,19 @@ function frameLife(now) {
     const a = TX(Tk.t), b = TX(Tk.delayed_from), yy = top - 6; lg.strokeStyle = "#f5c451"; lg.lineWidth = 1.6; lg.beginPath(); lg.moveTo(a, yy); lg.bezierCurveTo(a, yy - 30, b, yy - 30, b, yy); lg.stroke();
     lg.fillStyle = "#f5c451"; lg.beginPath(); lg.arc(b, yy, 3, 0, 7); lg.fill(); }
 }
+
+// ================================================================== tracking across a cut (point tracker vs LEDGER) + the walkthrough video
+trackP.then((J) => {
+  if (!J) return; const G = $("trackgrid"), C = J.cells, mm = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+  const rel = (c) => { const d = Math.round(c.t - J.cut); return d < 0 ? `${-d} s before the cut` : `${d} s after`; };
+  let h = `<div></div>`; C.forEach((c, k) => { if (k === 3) h += `<div></div>`; h += `<div class="th">${c.after ? J.days[1] : J.days[0]} · ${rel(c)}</div>`; });
+  for (const [row, lab, sub] of [["pt", "Point tracker", "AllTracker, seeded before the cut"], ["mem", "LEDGER", "memory objects, same colour = same object"]]) {
+    h += `<div class="rl">${lab}<small>${sub}</small></div>`;
+    C.forEach((c, k) => { if (k === 3) h += `<div class="cutc">cut</div>`; h += `<img src="assets/stitch/track/${row}_${k}.jpg" alt="${lab}, ${rel(c)}">`; });
+  }
+  G.innerHTML = h; G.insertAdjacentHTML("afterend", `<div class="trackleg">${Object.entries(J.objects).map(([id, n]) => `<span><i style="background:${J.colors[id]}"></i>${n}</span>`).join("")}</div>`);
+});
+{ const v = $("wt"); new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? v.play().catch(() => {}) : v.pause())), { threshold: 0.4 }).observe(v); }
 
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {
