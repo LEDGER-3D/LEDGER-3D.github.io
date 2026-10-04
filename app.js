@@ -218,13 +218,12 @@ async function select(k) { X = await (k === (Q.get("ds") || "hdepic") ? firstDS 
 const vid = $("vid"), vpane = $("vpane"), hero = new World($("world")); hero.avoid = [document.querySelector(".heroText h1"), $("vpane"), $("modes"), document.querySelector(".hud")];
 const vover = document.createElement("canvas"); vover.style.pointerEvents = "none"; vpane.appendChild(vover); const vctx = vover.getContext("2d");
 const bar = $("bar"), fill = $("fill"), knob = $("knob"), vtex = new THREE.VideoTexture(vid); vtex.colorSpace = THREE.SRGBColorSpace;
-let live = null, rays = null, trail = [], mode = "orbit";
+let live = null, rays = null, mode = "orbit";
 listeners.push((X) => {
   vid.src = X.A + X.D.video; vpane.style.setProperty("--ar", `${X.D.res[0]}/${X.D.res[1]}`);
   hero.set(X); live = frustum(X, X.D.camera[0], hero.rad * 0.1, 0xffffff, vtex, 0.97); hero.g.add(live);
   rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, fog: false }));
   rays.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); rays.geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); hero.g.add(rays);
-  trail = X.D.frames.map((f, i) => { const fr = frustum(X, camLerp(X, f.t), hero.rad * 0.05, 0x9cc3f5, null, 0.85); fr.visible = false; Object.assign(fr.userData, { t: f.t, src: frameSrc(X, i) }); hero.g.add(fr); return fr; });
   bar.querySelectorAll(".tick, .cut").forEach((e) => e.remove());
   for (const p of (X.D.parts || []).slice(1)) { const d = document.createElement("div"); d.className = "cut"; d.style.left = `${(100 * p.t0) / X.D.duration}%`; d.dataset.l = "cut · next video"; bar.appendChild(d); }
   for (const o of X.moves) { const d = document.createElement("div"); d.className = "tick"; d.style.left = `${(100 * o.segs[1].t[0]) / X.D.duration}%`; bar.appendChild(d); }
@@ -243,11 +242,6 @@ function heroUpdate(X, t) {
   for (const id of ids) { const m = hero.byId.get(id); if (!m || !m.visible || k >= 64) continue; const c = col3(id);
     P.set([b.C.x, b.C.y, b.C.z, m.position.x, m.position.y, m.position.z], 6 * k); C.set([c.r * 0.25, c.g * 0.25, c.b * 0.25, c.r, c.g, c.b], 6 * k); k++; }
   rays.geometry.setDrawRange(0, 2 * k); rays.geometry.attributes.position.needsUpdate = rays.geometry.attributes.color.needsUpdate = true; hero.seen = new Set(ids);
-  for (const fr of trail) {                                        // every keyframe the memory read, left where it was taken
-    const age = t - fr.userData.t; fr.visible = age >= -0.01 && (mode !== "follow" || age < 40 * X.speed);
-    if (fr.visible && !fr.userData.loaded) { fr.userData.loaded = true; const pl = fr.userData.plane; pl.material.map = tex(fr.userData.src); pl.material.needsUpdate = true; pl.visible = true; }
-    if (fr.visible) fr.userData.plane.material.opacity = Math.max(0.3, 0.9 - age / (90 * X.speed));            // older views fade
-  }
   const Fh = new THREE.Vector3(b.F.x, 0, b.F.z); if (Fh.lengthSq() < 1e-4) Fh.set(0, 0, -1); Fh.normalize(); const R = hero.rad;
   const now = performance.now(), a = 1 - Math.exp(-Math.min(1000, now - (heroUpdate.last || now)) / 420); heroUpdate.last = now;   // frame-rate independent easing
   if (mode === "follow") { hero.cam.position.lerp(b.C.clone().addScaledVector(Fh, -R * 0.48).addScaledVector(UPV, R * 0.3), a); hero.ctl.target.lerp(b.C.clone().addScaledVector(b.F, R * 0.16), a); }
@@ -510,11 +504,15 @@ const hms = (s) => { const m = /(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(s); return m ?
 const named = (o, text) => [o.name, ...o.tags].some((n) => n.length > 2 && new RegExp(`\\b${n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`).test(text));
 const keysOf = (X, T, ids) => { const said = `${T.question} ${T.options ? T.options[T.answer_idx] : ""}`.toLowerCase();
   return new Set([...ids].filter((id) => { const o = X.objById.get(id); return o && named(o, said); })); };
-async function qTexture(X, T) {                                    // the frame the question was asked on, with the item it points at
-  const im = await loadImg(T.qframe ? X.A + T.qframe : frameSrc(X, nearestFrame(X, T.t))); if (!im) return null;
-  const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0);
-  if (T.box) { const [a, b, d, e] = T.box; g.strokeStyle = "#e0a21b"; g.lineWidth = Math.max(4, im.width * 0.008); g.shadowColor = "#e0a21b"; g.shadowBlur = 18; g.strokeRect(a * c.width, b * c.height, (d - a) * c.width, (e - b) * c.height); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+function pathDot(A, p, color, size = 1) {                          // a moment on the camera trajectory (no picture, no time stamp)
+  const g = new THREE.Group(), r = A.rad * 0.011 * size; g.position.copy(p);
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color, fog: false })));
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(r * 2.4, 16, 12), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.22, depthWrite: false, fog: false })));
+  A.extra.add(g); return g;
+}
+function qImage(X, T, cv) {                                         // the frame the question was asked on (with the item it points at), in the chat
+  loadImg(T.qframe ? X.A + T.qframe : frameSrc(X, nearestFrame(X, T.t))).then((im) => { if (!im) return; cv.width = im.width; cv.height = im.height; const g = cv.getContext("2d"); g.drawImage(im, 0, 0);
+    if (T.box) { const [a, b, d, e] = T.box; g.strokeStyle = "#e0a21b"; g.lineWidth = Math.max(4, im.width * 0.008); g.strokeRect(a * cv.width, b * cv.height, (d - a) * cv.width, (e - b) * cv.height); } });
 }
 function dim(objs) { for (const o of objs) o.traverse((c) => { if (c.material) { c.material.transparent = true; c.material.opacity = Math.min(c.material.opacity, 0.22); } }); }
 
@@ -531,10 +529,9 @@ async function playSearch(X, T, s, add, g, prev) {
   await sleep(1400, g);
   const hits = s.hits.slice(0, 5), pts = [], ids = new Set(), box = row.querySelector(".moments");
   hits.forEach((h, k) => {
-    const src = frameSrc(X, nearestFrame(X, h.t)), fr = frustum(X, camLerp(X, h.t), A.rad * 0.06, 0x3987e5, tex(src), 1), dl = k * 260;
-    A.extra.add(fr); popIn(A, fr, dl); prev.push(fr); pts.push(fr.userData.centre, fr.userData.C);
-    const lab = textSprite(`${k + 1} · ${fmt(h.t)}`, "#cfe3fb", 26); lab.position.copy(fr.userData.C).addScaledVector(UPV, A.rad * 0.045); lab.userData.h = 0.034; A.extra.add(lab); popIn(A, lab, dl); prev.push(lab);
-    for (const id of h.obs) { const p = A.objPos(id, askT); if (!p) continue; ids.add(id); pts.push(p); prev.push(link(A, fr.userData.centre, p, col3(id), dl + 380)); }
+    const src = frameSrc(X, nearestFrame(X, h.t)), at = X.W2T(camLerp(X, h.t).slice(1, 4)), dot = pathDot(A, at, 0x3987e5), dl = k * 260;
+    popIn(A, dot, dl); prev.push(dot); pts.push(at);
+    for (const id of h.obs) { const p = A.objPos(id, askT); if (!p) continue; ids.add(id); pts.push(p); prev.push(link(A, at, p, col3(id), dl + 380)); }
     box.insertAdjacentHTML("beforeend", `<div class="moment" style="animation-delay:${dl / 1000}s"><img src="${src}"><div><b>${fmt(h.t)}</b> · ${h.obs.length} objects</div></div>`);
   });
   A.highlight(ids.size ? ids : null, keysOf(X, T, ids)); if (pts.length) A.fit(pts, 1.7);
@@ -572,16 +569,16 @@ async function playTask(X, T, g) {
   const add = (cls, html) => { const d = document.createElement("div"); d.className = `msg ${cls}`; d.innerHTML = html; th.appendChild(d);
     setTimeout(() => d.classList.add("in"), 30); feed.scrollTop = feed.scrollHeight; return d; };
   const when = T.delayed_from !== undefined ? `asked at ${fmt(T.t)} · about ${fmt(T.delayed_from)}, one video earlier` : T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video";
-  const qEl = add("q", `<div class="who">${when}</div><div class="qt">${esc(T.question)}</div>` +
+  const qEl = add("q", `<div class="who">${when}</div><div class="qt">${esc(T.question)}</div>` + (T.box ? `<canvas class="qimg"></canvas>` : "") +
     (T.options ? `<div class="opts">${T.options.map((o, i) => `<div class="opt">${"ABCDE"[i]}. ${esc(o)}</div>`).join("")}</div>` : ""));
+  if (T.box) qImage(X, T, qEl.querySelector(".qimg"));
   if (T.t !== undefined) {                                          // where and when the question was asked
-    const c = camLerp(X, T.t), d = A.rad * 0.09, fr = frustum(X, c, d, 0xe0a21b, null, 1), b = basis(X, c); A.extra.add(fr); popIn(A, fr);
-    qTexture(X, T).then((t) => { if (t && g === askGen) { const pl = fr.userData.plane; pl.material.map = t; pl.material.needsUpdate = true; pl.visible = true; } });
+    const c = camLerp(X, T.t), d = A.rad * 0.06, fr = frustum(X, c, d, 0xe0a21b), b = basis(X, c); A.extra.add(fr); popIn(A, fr);   // the wearer's camera, no picture
     if (T.delayed_from !== undefined) {                              // re-asked later: "now" and the earlier moment it is about, joined
-      const c2 = camLerp(X, T.delayed_from), fr2 = frustum(X, c2, d, 0x87e0c0, tex(frameSrc(X, nearestFrame(X, T.delayed_from))), 1);
-      A.extra.add(fr2); popIn(A, fr2, 600); link(A, fr.userData.centre, fr2.userData.centre, 0xf5c451, 900); A.fit([fr.userData.C, fr2.userData.C], 1.3);
+      const then = X.W2T(camLerp(X, T.delayed_from).slice(1, 4)), dot = pathDot(A, then, 0x87e0c0, 1.4);
+      popIn(A, dot, 600); link(A, b.C, then, 0xf5c451, 900); A.fit([b.C, then], 1.3);
       capSet("pin", `asked here at ${fmt(T.t)}, about this moment at ${fmt(T.delayed_from)}: ${Math.round((T.t - T.delayed_from) / 60)} minutes and one other video earlier`);
-    } else { A.fly(fr.userData.centre, b.C.clone().addScaledVector(b.F, -d * 3.4).addScaledVector(UPV, d * 1.3)); capSet("pin", `asked here, at ${fmt(T.t)}${T.box ? " · about the highlighted item" : ""}`); }
+    } else { A.fit([b.C], 2.4); capSet("pin", `asked here, at ${fmt(T.t)}${T.box ? " · about the highlighted item" : ""}`); }
   } else { A.overview(); capSet("pin", "asked after the whole video"); }
   await sleep(2600, g);
   const prev = [];
