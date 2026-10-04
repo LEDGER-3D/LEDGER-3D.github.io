@@ -7,11 +7,38 @@ const Q = new URLSearchParams(location.search);
 const resultsP = fetch("assets/results.json").then((r) => r.json()).catch(() => null);   // charts data, requested first
 const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"]];
 const UP = { hdepic: "z", vq3d: "z", ucs: "-y" };                  // which world axis points up
+const HFOV = { hdepic: 100, ucs: 68, vq3d: 92 };                   // drawn field of view of each wearer camera (deg)
+const PT = { hdepic: 0.022, ucs: 0.026, vq3d: 0.034 };             // dense point size (m)
 const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 const hue = (id) => (id * 137.508) % 360;
 const col = (id, a = 1, l = 62) => `hsla(${hue(id)},72%,${l}%,${a})`;
+const col3 = (id) => new THREE.Color(`hsl(${Math.round(hue(id))},72%,62%)`);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const loadImg = (src) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+const ICON = {                                                      // line icons (stroke = currentColor)
+  text: '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>',
+  time: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.2 2"/></svg>',
+  position: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4"/></svg>',
+  think: '<svg viewBox="0 0 24 24"><path d="M8 16.5H7a4.2 4.2 0 0 1-.7-8.35 5.6 5.6 0 0 1 10.9-.9A4.3 4.3 0 0 1 17 16.5z"/><circle cx="6.3" cy="19.6" r="1.25"/><circle cx="3.4" cy="22" r=".7"/></svg>',
+  answer: '<svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-6.5-5.8-6.5-11a6.5 6.5 0 0 1 13 0c0 5.2-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>',
+};
 const cache = {};
+function toThree(X, xyz, rgb, n, ceil = Infinity) {                 // memory frame -> three.js; indoor scenes lose their ceiling (dollhouse cut)
+  const pos = new Float32Array(n * 3), col = new Uint8Array(n * 3); let k = 0;
+  for (let i = 0; i < n; i++) { const v = X.W2T([xyz(3 * i), xyz(3 * i + 1), xyz(3 * i + 2)]); if (v.y > ceil) continue;
+    pos[3 * k] = v.x; pos[3 * k + 1] = v.y; pos[3 * k + 2] = v.z; col[3 * k] = rgb[3 * i]; col[3 * k + 1] = rgb[3 * i + 1]; col[3 * k + 2] = rgb[3 * i + 2]; k++; }
+  return { pos: pos.subarray(0, 3 * k), rgb: col.subarray(0, 3 * k), n: k };
+}
+async function loadDense(X) {                                      // Pi3X reconstruction, int16-quantised (tools/dense_recon.py)
+  try {
+    const [m, b] = await Promise.all([fetch(X.A + "dense.json").then((r) => (r.ok ? r.json() : null)), fetch(X.A + "dense.bin").then((r) => (r.ok ? r.arrayBuffer() : null))]);
+    if (!m || !b) return null;
+    const q = new Int16Array(b, 0, m.n * 3), o = m.offset, s = m.scale;
+    const ceil = X.up === "z" ? Math.max(...X.D.camera.map((c) => X.W2T(c.slice(1, 4)).y)) + 0.45 : Infinity;
+    return toThree(X, (i) => (q[i] + 32500) * s + o[i % 3], new Uint8Array(b, m.n * 6, m.n * 3), m.n, ceil);
+  } catch (e) { return null; }
+}
 async function getDS(name) {
   if (cache[name]) return cache[name];
   const A = `assets/${name}/`;
@@ -21,8 +48,10 @@ async function getDS(name) {
   const objById = new Map(D.objects.map((o) => [o.id, o])), detsByOb = new Map();
   D.frames.forEach((f, fi) => f.dets.forEach((d) => { if (d.ob === undefined) return; if (!detsByOb.has(d.ob)) detsByOb.set(d.ob, []); detsByOb.get(d.ob).push({ ...d, t: f.t, fi }); }));
   const moves = D.objects.filter((o) => o.segs.length >= 2 && o.segs.every((s) => s.w));
-  const X = { name, A, D, task, sprite, pts, objById, detsByOb, moves, speed: D.speed || 1, up: UP[name] };
+  const X = { name, A, D, task, sprite, objById, detsByOb, moves, speed: D.speed || 1, up: UP[name] };
   X.W2T = X.up === "z" ? (p) => new THREE.Vector3(p[0], p[2], -p[1]) : (p) => new THREE.Vector3(p[0], -p[1], -p[2]);
+  if (pts) { const n = pts.byteLength / 15, xyz = new Float32Array(pts, 0, n * 3); X.sparse = toThree(X, (i) => xyz[i], new Uint8Array(pts, n * 12, n * 3), n); }
+  X.denseP = loadDense(X);
   return (cache[name] = X);
 }
 function posAt(o, t) {
@@ -32,8 +61,12 @@ function posAt(o, t) {
   const f = (t - a[0]) / (b[0] - a[0]); return [0, 1, 2].map((k) => a[k + 1] + f * (b[k + 1] - a[k + 1]));
 }
 const firstDS = getDS(Q.get("ds") || "hdepic");                  // start loading before any WebGL context exists
+if (Q.has("preload")) await (await firstDS).denseP;               // (headless tests: fetches after a WebGL context fail there)
 const eventAt = (X, t) => { let e = null; for (const x of X.D.events) if (x.t <= t + 1e-6) e = x; return e; };
-const camAt = (X, t) => { let c = X.D.camera[0]; for (const x of X.D.camera) { if (x[0] > t) break; c = x; } return c; };
+function camLerp(X, t) {                                           // wearer camera [t, centre, forward] at time t, interpolated
+  const P = X.D.camera; if (t <= P[0][0]) return P[0]; const i = P.findIndex((c) => c[0] > t); if (i === -1) return P[P.length - 1];
+  const a = P[i - 1], b = P[i]; if (b[0] - a[0] > 8) return a; const f = (t - a[0]) / (b[0] - a[0]); return a.map((v, k) => (k ? v + f * (b[k] - v) : t));
+}
 const tileXY = (X, id) => { const c = X.D.sprite.cols, s = X.D.sprite.tile; return [(id % c) * s, Math.floor(id / c) * s]; };
 const nearestFrame = (X, t) => X.D.frames.reduce((b, f, i) => (Math.abs(f.t - t) < Math.abs(X.D.frames[b].t - t) ? i : b), 0);
 const frameSrc = (X, i) => `${X.A}frames/${String(i).padStart(2, "0")}.jpg`;
@@ -43,91 +76,131 @@ function textSprite(text, color = "#fff", size = 30) {
   const c = document.createElement("canvas"), g = c.getContext("2d"); g.font = `600 ${size}px Inter, -apple-system, sans-serif`;
   const w = Math.ceil(g.measureText(text).width) + 24; c.width = w; c.height = size + 18; g.font = `600 ${size}px Inter, -apple-system, sans-serif`;
   g.fillStyle = "rgba(8,10,13,.82)"; g.beginPath(); g.roundRect(0, 0, w, c.height, c.height / 2); g.fill(); g.fillStyle = color; g.fillText(text, 12, size + 2);
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true, fog: false, sizeAttenuation: false }));
   s.renderOrder = 10; s.userData.aspect = w / c.height; return s;
 }
 
-// ================================================================== 3D memory view (hero + ask)
-class View3D {
-  constructor(host, autoRotate = true, showPath = true) {
-    this.host = host; this.r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); this.r.setPixelRatio(Math.min(devicePixelRatio, 2));
-    host.prepend(this.r.domElement); this.scene = new THREE.Scene(); this.cam = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
-    this.ctl = new OrbitControls(this.cam, this.r.domElement); this.ctl.enableDamping = true; this.ctl.autoRotate = autoRotate; this.ctl.autoRotateSpeed = 0.5;
-    new ResizeObserver(() => this.resize()).observe(host); this.resize(); this.hl = null; this.labels = new Map(); this.showPath = showPath; this.goal = null;
-    this.tagLayer = document.createElement("div"); this.tagLayer.className = "tags3d"; host.appendChild(this.tagLayer); this.tags = new Map();
+// ================================================================== 3D world: dense point cloud + live memory (hero + ask)
+const UPV = new THREE.Vector3(0, 1, 0), M4 = new THREE.Matrix4();
+const DISC = (() => { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, "#fff"); r.addColorStop(0.7, "#fff"); r.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+const texCache = new Map();
+function tex(src) { if (!texCache.has(src)) { const t = new THREE.TextureLoader().load(src); t.colorSpace = THREE.SRGBColorSpace; texCache.set(src, t); } return texCache.get(src); }
+function basis(X, c) {                                             // camera centre C, forward F, right R, up U (three.js frame)
+  const C = X.W2T(c.slice(1, 4)), F = X.W2T(c.slice(4, 7)).normalize(), R = new THREE.Vector3().crossVectors(F, UPV);
+  if (R.lengthSq() < 1e-6) R.set(1, 0, 0); R.normalize(); return { C, F, R, U: new THREE.Vector3().crossVectors(R, F) };
+}
+function orient(obj, b) { obj.position.copy(b.C); obj.quaternion.setFromRotationMatrix(M4.makeBasis(b.R, b.U, b.F.clone().negate())); }
+function frustum(X, c, d, color, map, opacity = 1) {               // a camera pyramid with its picture on the image plane
+  const b = basis(X, c), w = d * Math.tan((HFOV[X.name] * Math.PI) / 360), h = (w * X.D.res[1]) / X.D.res[0], g = new THREE.Group();
+  const P = [[0, 0, 0], [-w, -h, -d], [w, -h, -d], [w, h, -d], [-w, h, -d]], E = [0, 1, 0, 2, 0, 3, 0, 4, 1, 2, 2, 3, 3, 4, 4, 1];
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(E.flatMap((i) => P[i]), 3));
+  g.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, transparent: true, opacity, fog: false })));
+  if (map !== undefined) {
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(2 * w, 2 * h), new THREE.MeshBasicMaterial({ map, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false, fog: false }));
+    pl.position.z = -d; pl.visible = !!map; g.add(pl); g.userData.plane = pl;
+  }
+  orient(g, b); Object.assign(g.userData, { C: b.C, F: b.F, centre: b.C.clone().addScaledVector(b.F, d) }); return g;
+}
+const easeBack = (k) => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
+
+class World {
+  constructor(host, { path = true } = {}) {
+    this.host = host; this.showPath = path; this.r = new THREE.WebGLRenderer({ antialias: true, alpha: true }); this.r.setPixelRatio(Math.min(devicePixelRatio, 2));
+    host.prepend(this.r.domElement); this.scene = new THREE.Scene(); this.cam = new THREE.PerspectiveCamera(50, 1, 0.02, 400);
+    this.ctl = new OrbitControls(this.cam, this.r.domElement); this.ctl.enableDamping = true; this.ctl.autoRotateSpeed = 0.45;
+    this.ctl.enableZoom = false; this.r.domElement.style.touchAction = "pan-y";      // the page keeps scrolling over a big 3D view
+    this.r.domElement.addEventListener("pointerdown", () => (this.goal = null));
+    this.tagLayer = document.createElement("div"); this.tagLayer.className = "tags3d"; host.appendChild(this.tagLayer);
+    this.tags = new Map(); this.hl = null; this.keys = new Set(); this.goal = null; this.tw = []; this.visible = true;
+    new ResizeObserver(() => this.resize()).observe(host); this.resize();
+    new IntersectionObserver((es) => es.forEach((e) => (this.visible = e.isIntersecting)), { threshold: 0.02 }).observe(host);
   }
   resize() { const w = this.host.clientWidth, h = this.host.clientHeight; if (!w || !h) return; this.r.setSize(w, h, false); this.cam.aspect = w / h; this.cam.updateProjectionMatrix(); }
+  tween(dur, f, delay = 0) { this.tw.push({ t0: performance.now() + delay, dur, f }); }
   set(X) {
-    if (this.g) this.scene.remove(this.g); const g = (this.g = new THREE.Group()); this.scene.add(g); this.X = X; this.hl = null; this.labels = new Map();
-    this.tagLayer.innerHTML = ""; this.tags = new Map();
-    const camPts = X.D.camera.map((c) => X.W2T(c.slice(1, 4)));
-    const objPts = X.D.objects.flatMap((o) => o.traj.map((p) => X.W2T(p.slice(1))));
-    const box = new THREE.Box3().setFromPoints(objPts.length ? objPts : camPts), ctr = box.getCenter(new THREE.Vector3());
-    const rad = Math.max(1.5, box.getSize(new THREE.Vector3()).length() * 0.5); this.rad = rad; this.ctr = ctr;
-    this.scene.fog = new THREE.Fog(0x111419, rad * 1.6, rad * 4.5); this.cloud = null;
-    if (X.pts) {
-      const n = X.pts.byteLength / 15, xyz = new Float32Array(X.pts, 0, n * 3), rgb = new Uint8Array(X.pts, n * 12, n * 3), pos = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) { const v = X.W2T([xyz[3 * i], xyz[3 * i + 1], xyz[3 * i + 2]]); pos[3 * i] = v.x; pos[3 * i + 1] = v.y; pos[3 * i + 2] = v.z; }
-      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3, true));
-      this.cloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: rad * 0.006, vertexColors: true, transparent: true, opacity: 0.6 })); g.add(this.cloud);
-    }
-    const pathAll = new THREE.Line(new THREE.BufferGeometry().setFromPoints(camPts), new THREE.LineBasicMaterial({ color: 0x3a414c })); pathAll.visible = this.showPath; g.add(pathAll);
-    this.pathNow = new THREE.Line(new THREE.BufferGeometry().setFromPoints(camPts), new THREE.LineBasicMaterial({ color: 0xffffff })); this.pathNow.visible = this.showPath; g.add(this.pathNow);
-    this.frustum = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.04, rad * 0.09, 4, 1, true), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true })); g.add(this.frustum);
-    const dot = new THREE.SphereGeometry(rad * 0.016, 16, 12);
-    this.nodes = X.D.objects.map((o) => { const m = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: new THREE.Color(`hsl(${hue(o.id)},72%,62%)`), transparent: true }));
-      m.visible = false; m.userData = { o, born: -1 }; g.add(m); return m; });
+    if (this.g) this.scene.remove(this.g); const g = (this.g = new THREE.Group()); this.scene.add(g); this.X = X; this.hl = null; this.keys = new Set(); this.tw = [];
+    this.tagLayer.innerHTML = ""; this.tags = new Map(); this.cloud = null;
+    const camPts = (this.camPts = X.D.camera.map((c) => X.W2T(c.slice(1, 4)))), objPts = X.D.objects.flatMap((o) => o.traj.map((p) => X.W2T(p.slice(1))));
+    const box = new THREE.Box3().setFromPoints([...objPts, ...camPts]), ctr = box.getCenter(new THREE.Vector3());
+    const rad = (this.rad = Math.max(1.5, box.getSize(new THREE.Vector3()).length() * 0.5)); this.ctr = ctr;
+    this.scene.fog = new THREE.Fog(0x060708, rad * 1.5, rad * 5);
+    if (X.sparse) this.setCloud(X.sparse, rad * 0.006);
+    X.denseP.then((d) => { if (d && this.X === X) this.setCloud(d, PT[X.name]); });
+    this.pathAll = new THREE.Line(new THREE.BufferGeometry().setFromPoints(camPts), new THREE.LineBasicMaterial({ color: 0x5a6372, transparent: true, opacity: 0.6, fog: false }));
+    this.pathAll.visible = this.showPath; g.add(this.pathAll);
+    this.pathNow = new THREE.Line(new THREE.BufferGeometry().setFromPoints(camPts), new THREE.LineBasicMaterial({ color: 0xffffff, fog: false })); this.pathNow.visible = this.showPath; g.add(this.pathNow);
+    const dot = new THREE.SphereGeometry(rad * 0.009, 16, 12);
+    this.nodes = X.D.objects.map((o) => { const m = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: col3(o.id), transparent: true, fog: false }));
+      m.visible = false; m.renderOrder = 2; m.userData = { o, born: -1 }; g.add(m); return m; });
+    this.byId = new Map(this.nodes.map((m) => [m.userData.o.id, m]));
     this.arrows = X.moves.map((o) => { const p = o.segs.map((s) => X.W2T(s.w)), lift = new THREE.Vector3(0, rad * 0.08, 0);
       const curve = new THREE.CatmullRomCurve3(p.flatMap((q, i) => (i ? [p[i - 1].clone().lerp(q, 0.5).add(lift), q] : [q])));
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, rad * 0.003, 6), new THREE.MeshBasicMaterial({ color: 0xe8703a })); tube.visible = false; g.add(tube);
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, rad * 0.003, 6), new THREE.MeshBasicMaterial({ color: 0xe8703a, fog: false })); tube.visible = false; g.add(tube);
       return { tube, t: o.segs[1].t[0] }; });
-    this.extra = new THREE.Group(); g.add(this.extra);
-    this.cam.position.copy(ctr).add(new THREE.Vector3(rad * 0.9, rad * 1.0, rad * 0.9)); this.ctl.target.copy(ctr); this.goal = null;
+    this.extra = new THREE.Group(); g.add(this.extra); this.overview(true);
   }
-  focus(p, dist) {                                                // fly the camera to look at world point p (memory frame) from `dist`
-    const tgt = p.isVector3 ? p.clone() : this.X.W2T(p), dir = this.cam.position.clone().sub(this.ctl.target).normalize();
-    this.goal = { tgt, pos: tgt.clone().add(dir.multiplyScalar(dist)) };
+  setCloud(c, size) {
+    if (this.cloud) { this.g.remove(this.cloud); this.cloud.geometry.dispose(); this.cloud.material.dispose(); }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(c.pos, 3)); geo.setAttribute("color", new THREE.BufferAttribute(c.rgb, 3, true));
+    const mat = new THREE.PointsMaterial({ size, vertexColors: true, map: DISC, alphaTest: 0.4, transparent: true }), px = (4.5 * this.r.getPixelRatio()).toFixed(1), near = (this.rad * 0.05).toFixed(3);
+    mat.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace("#include <fog_vertex>",                  // close points stay small; the nearest vanish
+      `#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.6, ${px});\n  if (-mvPosition.z < ${near}) gl_PointSize = 0.0;`); };
+    mat.customProgramCacheKey = () => `cloud${px}_${near}`;
+    this.cloud = new THREE.Points(geo, mat); this.g.add(this.cloud);
   }
+  fly(tgt, pos, snap = false) { if (snap) { this.ctl.target.copy(tgt); this.cam.position.copy(pos); this.goal = null; } else this.goal = { tgt: tgt.clone(), pos: pos.clone() }; }
+  overview(snap = false) { this.fly(this.ctr, this.ctr.clone().add(new THREE.Vector3(this.rad * 0.72, this.rad * 0.8, this.rad * 0.72)), snap); }
+  fit(pts, k = 2.2) {                                              // frame a set of points, keeping the current viewing direction (from above)
+    if (!pts.length) return; const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+    const r = Math.max(this.rad * 0.16, ...pts.map((p) => p.distanceTo(c))), dir = this.cam.position.clone().sub(this.ctl.target);
+    dir.y = Math.max(dir.y, dir.length() * 0.55); dir.normalize(); this.fly(c, c.clone().addScaledVector(dir, r * k));
+  }
+  objPos(id, t) { const o = this.X.objById.get(id); const p = o && (posAt(o, t) || (o.traj.length ? o.traj[o.traj.length - 1].slice(1) : null)); return p ? this.X.W2T(p) : null; }
   update(t) {
     if (!this.X) return 0; let n = 0; const now = performance.now();
     for (const m of this.nodes) {
       const p = posAt(m.userData.o, t); if (!p) { m.visible = false; m.userData.born = -1; continue; }
       if (m.userData.born < 0) m.userData.born = now; const age = (now - m.userData.born) / 600; let s = age < 1 ? 1 + 1.6 * (1 - age) : 1;
-      const lit = !this.hl || this.hl.has(m.userData.o.id); if (this.hl && lit) s *= 1.6;
-      m.material.opacity = lit ? 1 : 0.07; m.position.copy(this.X.W2T(p)); m.scale.setScalar(s); m.visible = true; n++;
+      const lit = !this.hl || this.hl.has(m.userData.o.id); if (this.hl && lit) s *= this.keys.has(m.userData.o.id) ? 2.1 : 1.5;
+      m.material.opacity = lit ? 1 : 0.12; m.position.copy(this.X.W2T(p)); m.scale.setScalar(s); m.visible = true; n++;
     }
-    for (const a of this.arrows) a.tube.visible = t >= a.t && !this.hl;
+    for (const a of this.arrows) a.tube.visible = t >= a.t && !this.hl && !this.noArrows;
     const k = this.X.D.camera.findIndex((c) => c[0] > t); this.pathNow.geometry.setDrawRange(0, k === -1 ? this.X.D.camera.length : Math.max(1, k));
-    const c = camAt(this.X, t); this.frustum.position.copy(this.X.W2T(c.slice(1, 4)));
-    this.frustum.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), this.X.W2T(c.slice(4, 7)).normalize());
-    if (this.cloud) this.cloud.material.opacity = this.hl ? 0.3 : 0.6;
-    for (const s of this.extra.children) if (s.isSprite) { const h = this.rad * 0.05; s.scale.set(h * s.userData.aspect, h, 1); }
+    if (this.cloud) this.cloud.material.color.setScalar(this.hl ? 0.5 : 1);          // dim by colour: opacity would push small points under the alpha test
+    for (const s of this.extra.children) if (s.isSprite) { const h = (s.userData.h ?? 0.03) * (s.userData.k ?? 1); s.scale.set(h * s.userData.aspect, h, 1); }   // constant on screen
     return n;
   }
   highlight(ids, keys = null) { this.hl = ids && ids.size ? ids : null; this.keys = keys || new Set(); }
   placeTags() {                                                   // a name tag on every visible dot; overlapping tags give way to bigger ones
-    const w = this.host.clientWidth, h = this.host.clientHeight, placed = [], shown = new Set(), v = new THREE.Vector3();
+    const w = this.host.clientWidth, h = this.host.clientHeight, shown = new Set(), v = new THREE.Vector3(), hr = this.host.getBoundingClientRect();
+    const placed = (this.avoid || []).map((e) => { const r = e.getBoundingClientRect(); return [r.left - hr.left, r.top - hr.top, r.right - hr.left, r.bottom - hr.top]; });   // keep clear of overlaid text
     const K = this.keys || new Set(), cand = this.nodes.filter((m) => m.visible && (!this.hl || this.hl.has(m.userData.o.id)))
-      .sort((a, b) => (K.has(b.userData.o.id) - K.has(a.userData.o.id)) || b.userData.o.n_obs - a.userData.o.n_obs);
+      .sort((a, b) => (K.has(b.userData.o.id) - K.has(a.userData.o.id)) || ((this.seen?.has(b.userData.o.id) ?? 0) - (this.seen?.has(a.userData.o.id) ?? 0)) || b.userData.o.n_obs - a.userData.o.n_obs);
     for (const m of cand) {
       v.copy(m.position).project(this.cam); if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
       const o = m.userData.o, x = ((v.x + 1) / 2) * w + 7, y = ((1 - v.y) / 2) * h - 9; let el = this.tags.get(o.id);
       if (!el) { el = document.createElement("span"); el.textContent = o.name; el.style.borderLeftColor = col(o.id, 1, 66); this.tagLayer.appendChild(el); this.tags.set(o.id, el); el._w = el.offsetWidth || o.name.length * 6.4 + 14; }
       const r = [x, y, x + el._w, y + 17];
       if (!K.has(o.id) && placed.some((q) => r[0] < q[2] && r[2] > q[0] && r[1] < q[3] && r[3] > q[1])) continue;
-      placed.push(r); shown.add(o.id); el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`; el.classList.toggle("lit", !!this.hl); el.classList.toggle("key", K.has(o.id));
+      placed.push(r); shown.add(o.id); el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+      el.classList.toggle("lit", !!this.hl || !!this.seen?.has(o.id)); el.classList.toggle("key", K.has(o.id));
     }
     for (const [id, el] of this.tags) el.style.display = shown.has(id) ? "" : "none";
   }
   marker(p, color, label, size = 1) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(this.rad * 0.022 * size, 20, 14), new THREE.MeshBasicMaterial({ color })); m.position.copy(this.X.W2T(p)); this.extra.add(m);
-    if (label) { const s = textSprite(label, "#fff", 26); s.position.copy(m.position).add(new THREE.Vector3(0, this.rad * 0.07 * size, 0)); this.extra.add(s); }
+    const m = new THREE.Mesh(new THREE.SphereGeometry(this.rad * 0.02 * size, 20, 14), new THREE.MeshBasicMaterial({ color, fog: false })); m.position.copy(this.X.W2T(p)); this.extra.add(m);
+    if (label) { const s = textSprite(label, "#fff", 26); s.position.copy(m.position).add(new THREE.Vector3(0, this.rad * 0.06 * size, 0)); this.extra.add(s); } return m;
   }
-  line(a, b, color) { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.X.W2T(a), this.X.W2T(b)]), new THREE.LineDashedMaterial({ color, dashSize: 0.08, gapSize: 0.05 })); l.computeLineDistances(); this.extra.add(l); }
-  clearExtra() { for (const c of [...this.extra.children]) this.extra.remove(c); this.labels.clear(); }
+  line(a, b, color) { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.X.W2T(a), this.X.W2T(b)]), new THREE.LineDashedMaterial({ color, dashSize: 0.08, gapSize: 0.05, fog: false })); l.computeLineDistances(); this.extra.add(l); }
+  clearExtra() { for (const c of [...this.extra.children]) this.extra.remove(c); }
   render() {
-    if (this.goal) { this.ctl.target.lerp(this.goal.tgt, 0.06); this.cam.position.lerp(this.goal.pos, 0.06); if (this.cam.position.distanceTo(this.goal.pos) < 0.01) this.goal = null; }
-    this.ctl.update(); this.r.render(this.scene, this.cam); this.placeTags();
+    const now = performance.now(); this.tw = this.tw.filter((w) => { const k = (now - w.t0) / w.dur; if (k < 0) return true; w.f(Math.min(1, k)); return k < 1; });
+    const a = 1 - Math.exp(-Math.min(1000, now - (this.last || now)) / 380); this.last = now;
+    if (this.goal) { this.ctl.target.lerp(this.goal.tgt, a); this.cam.position.lerp(this.goal.pos, a); if (this.cam.position.distanceTo(this.goal.pos) < this.rad * 0.002) this.goal = null; }
+    this.ctl.update(); const d = this.cam.position.distanceTo(this.ctl.target); this.scene.fog.near = d + this.rad * 0.5; this.scene.fog.far = d + this.rad * 3.2;   // fog follows the focus
+    for (const m of this.nodes) if (m.visible) m.scale.multiplyScalar(Math.min(1.2, Math.max(0.22, this.cam.position.distanceTo(m.position) / (this.rad * 0.9))));   // ~constant on screen
+    this.r.render(this.scene, this.cam); this.placeTags();
   }
 }
 
@@ -137,17 +210,46 @@ const sw = $("switch");
 for (const [k, a, b] of DATASETS) { const btn = document.createElement("button"); btn.innerHTML = `${a} <small>${b}</small>`; btn.dataset.k = k; btn.onclick = () => select(k); sw.appendChild(btn); }
 async function select(k) { X = await (k === (Q.get("ds") || "hdepic") ? firstDS : getDS(k)); [...sw.children].forEach((b) => b.classList.toggle("on", b.dataset.k === k)); for (const f of listeners) f(X); }
 
-// ================================================================== HERO: video + live memory, pause -> hover
-const vid = $("vid"), vpane = $("vpane"), hero3d = new View3D($("mem3d"));
+// ================================================================== HERO: the wearer moving through the reconstructed scene
+const vid = $("vid"), vpane = $("vpane"), hero = new World($("world")); hero.avoid = [document.querySelector(".heroText h1"), $("vpane"), $("modes"), document.querySelector(".hud")];
 const vover = document.createElement("canvas"); vover.style.pointerEvents = "none"; vpane.appendChild(vover); const vctx = vover.getContext("2d");
-const bar = $("bar"), fill = $("fill"), knob = $("knob");
+const bar = $("bar"), fill = $("fill"), knob = $("knob"), vtex = new THREE.VideoTexture(vid); vtex.colorSpace = THREE.SRGBColorSpace;
+let live = null, rays = null, trail = [], mode = "orbit";
 listeners.push((X) => {
-  vid.src = X.A + X.D.video; for (const id of ["vpane", "mem3d"]) $(id).style.setProperty("--ar", `${X.D.res[0]}/${X.D.res[1]}`);
-  document.querySelector(".stage").style.setProperty("--arn", X.D.res[0] / X.D.res[1]);
-  hero3d.set(X); bar.querySelectorAll(".tick").forEach((e) => e.remove());
+  vid.src = X.A + X.D.video; vpane.style.setProperty("--ar", `${X.D.res[0]}/${X.D.res[1]}`);
+  hero.set(X); live = frustum(X, X.D.camera[0], hero.rad * 0.1, 0xffffff, vtex, 0.97); hero.g.add(live);
+  rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, fog: false }));
+  rays.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); rays.geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); hero.g.add(rays);
+  trail = X.D.frames.map((f, i) => { const fr = frustum(X, camLerp(X, f.t), hero.rad * 0.05, 0x9cc3f5, null, 0.85); fr.visible = false; Object.assign(fr.userData, { t: f.t, src: frameSrc(X, i) }); hero.g.add(fr); return fr; });
+  bar.querySelectorAll(".tick").forEach((e) => e.remove());
   for (const o of X.moves) { const d = document.createElement("div"); d.className = "tick"; d.style.left = `${(100 * o.segs[1].t[0]) / X.D.duration}%`; bar.appendChild(d); }
-  $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; vid.play().catch(() => {});
+  $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; setMode(Q.get("mode") || mode); vid.play().catch(() => {});
 });
+function setMode(m) {
+  mode = m; hero.noArrows = m === "follow"; [...$("modes").children].forEach((b) => b.classList.toggle("on", b.dataset.m === m)); hero.ctl.autoRotate = m === "orbit";
+  if (m === "orbit") hero.overview();
+}
+for (const b of $("modes").children) b.onclick = () => setMode(b.dataset.m);
+hero.ctl.addEventListener("start", () => { if (mode !== "free") setMode("free"); });        // grabbing the view frees the camera
+function heroUpdate(X, t) {
+  const n = hero.update(t), b = basis(X, camLerp(X, t)); orient(live, b);
+  const f = X.D.frames[nearestFrame(X, t)], ids = [...new Set(f.dets.filter((d) => d.ob !== undefined).map((d) => d.ob))];
+  const P = rays.geometry.attributes.position.array, C = rays.geometry.attributes.color.array; let k = 0;       // rays: camera -> what it sees now
+  for (const id of ids) { const m = hero.byId.get(id); if (!m || !m.visible || k >= 64) continue; const c = col3(id);
+    P.set([b.C.x, b.C.y, b.C.z, m.position.x, m.position.y, m.position.z], 6 * k); C.set([c.r * 0.25, c.g * 0.25, c.b * 0.25, c.r, c.g, c.b], 6 * k); k++; }
+  rays.geometry.setDrawRange(0, 2 * k); rays.geometry.attributes.position.needsUpdate = rays.geometry.attributes.color.needsUpdate = true; hero.seen = new Set(ids);
+  for (const fr of trail) {                                        // every keyframe the memory read, left where it was taken
+    const age = t - fr.userData.t; fr.visible = age >= -0.01 && (mode !== "follow" || age < 40 * X.speed);
+    if (fr.visible && !fr.userData.loaded) { fr.userData.loaded = true; const pl = fr.userData.plane; pl.material.map = tex(fr.userData.src); pl.material.needsUpdate = true; pl.visible = true; }
+    if (fr.visible) fr.userData.plane.material.opacity = Math.max(0.3, 0.9 - age / (90 * X.speed));            // older views fade
+  }
+  const Fh = new THREE.Vector3(b.F.x, 0, b.F.z); if (Fh.lengthSq() < 1e-4) Fh.set(0, 0, -1); Fh.normalize(); const R = hero.rad;
+  const now = performance.now(), a = 1 - Math.exp(-Math.min(1000, now - (heroUpdate.last || now)) / 420); heroUpdate.last = now;   // frame-rate independent easing
+  if (mode === "follow") { hero.cam.position.lerp(b.C.clone().addScaledVector(Fh, -R * 0.48).addScaledVector(UPV, R * 0.3), a); hero.ctl.target.lerp(b.C.clone().addScaledVector(b.F, R * 0.16), a); }
+  else if (mode === "orbit") hero.ctl.target.lerp(hero.ctr.clone().lerp(b.C, 0.5), a * 0.4);          // circle the room, drifting with the wearer
+  else if (mode === "top") { hero.cam.position.lerp(b.C.clone().addScaledVector(UPV, R * 1.15).addScaledVector(Fh, -R * 0.45), a); hero.ctl.target.lerp(b.C, a); }
+  return n;
+}
 let tFix = Q.get("t") !== null ? +Q.get("t") : null;           // deep link: open the memory at a moment (until the user plays)
 const tNow = () => (X ? Math.min(tFix ?? (vid.currentTime || 0) * X.speed, X.D.duration) : 0);
 function seekFrom(e) { tFix = null; const r = bar.getBoundingClientRect(); vid.currentTime = (Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * X.D.duration) / X.speed; }
@@ -155,9 +257,10 @@ let dragging = false;
 bar.addEventListener("pointerdown", (e) => { dragging = true; bar.setPointerCapture(e.pointerId); seekFrom(e); });
 bar.addEventListener("pointermove", (e) => dragging && seekFrom(e)); bar.addEventListener("pointerup", () => (dragging = false));
 $("play").onclick = () => { tFix = null; vid.paused ? vid.play() : vid.pause(); };
-vid.addEventListener("play", () => { $("play").textContent = "❚❚"; $("phint").style.opacity = 0; hero3d.highlight(null); vctx.clearRect(0, 0, vover.width, vover.height); });
+$("pipx").onclick = () => vpane.classList.toggle("big");
+vid.addEventListener("play", () => { $("play").textContent = "❚❚"; $("phint").style.opacity = 0; hero.highlight(null); vctx.clearRect(0, 0, vover.width, vover.height); });
 vid.addEventListener("pause", () => { $("play").textContent = "▶"; $("phint").style.opacity = 1; });
-new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? vid.play().catch(() => {}) : vid.pause())), { threshold: 0.3 }).observe($("mem3d"));
+new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? vid.play().catch(() => {}) : vid.pause())), { threshold: 0.3 }).observe($("world"));
 const pick = (f, mx, my) => f.dets.filter((d) => d.ob !== undefined && mx >= d.box[0] && mx <= d.box[2] && my >= d.box[1] && my <= d.box[3])
   .sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0];
 vpane.addEventListener("pointermove", (e) => {
@@ -165,11 +268,20 @@ vpane.addEventListener("pointermove", (e) => {
   const r = vpane.getBoundingClientRect(), mx = (e.clientX - r.left) / r.width, my = (e.clientY - r.top) / r.height, t = tNow();
   const fi = nearestFrame(X, t), f = X.D.frames[fi], S = (vover.width = r.width * 2), H = (vover.height = r.height * 2);
   vctx.clearRect(0, 0, S, H); const hit = Math.abs(f.t - t) <= 2.5 * X.speed ? pick(f, mx, my) : null;
-  if (!hit) { hideSG(); hero3d.highlight(null); return; }
+  if (!hit) { hideSG(); hero.highlight(null); return; }
   vctx.strokeStyle = col(hit.ob); vctx.lineWidth = 4; vctx.strokeRect(hit.box[0] * S, hit.box[1] * H, (hit.box[2] - hit.box[0]) * S, (hit.box[3] - hit.box[1]) * H);
-  showSG(sceneGraph(X, hit, f, t), e); hero3d.highlight(new Set([hit.ob]));
+  showSG(sceneGraph(X, hit, f, t), e); hero.highlight(new Set([hit.ob]));
 });
-vpane.addEventListener("pointerleave", () => { hideSG(); vctx.clearRect(0, 0, vover.width, vover.height); if (vid.paused) hero3d.highlight(null); });
+vpane.addEventListener("pointerleave", () => { hideSG(); vctx.clearRect(0, 0, vover.width, vover.height); if (vid.paused) hero.highlight(null); });
+hero.r.domElement.addEventListener("pointermove", (e) => {      // hover a memory object in 3D -> its scene graph
+  if (!X || e.buttons) return; const r = hero.r.domElement.getBoundingClientRect(), v = new THREE.Vector3(); let best = null, bd = 16;
+  for (const m of hero.nodes) { if (!m.visible) continue; v.copy(m.position).project(hero.cam); if (v.z > 1) continue;
+    const d = Math.hypot(((v.x + 1) / 2) * r.width - (e.clientX - r.left), ((1 - v.y) / 2) * r.height - (e.clientY - r.top)); if (d < bd) { bd = d; best = m; } }
+  if (!best) { hideSG(); if (hero.hl && !vid.paused) hero.highlight(null); return; }
+  const t = tNow(), ds = X.detsByOb.get(best.userData.o.id) || []; if (!ds.length) return;
+  const d = ds.reduce((a, q) => (Math.abs(q.t - t) < Math.abs(a.t - t) ? q : a)); showSG(sceneGraph(X, d, X.D.frames[d.fi], t), e); hero.highlight(new Set([d.ob]));
+});
+hero.r.domElement.addEventListener("pointerleave", () => { hideSG(); hero.highlight(null); });
 
 // ---- scene graph card (hero hover + pipeline "Ledger")
 const sgEl = $("sg");
@@ -357,58 +469,126 @@ function frameC() {
   }
 }
 
-// ================================================================== ASK: replay of the answerer
-const ask3d = new View3D($("askview"), false, false), askImg = document.createElement("canvas");
-Object.assign(askImg.style, { position: "absolute", inset: 0, width: "100%", height: "100%", transition: "opacity .6s", pointerEvents: "none" });
-$("askview").appendChild(askImg); let askTimer = null, askT = 0;
-listeners.push((X) => runAsk(X)); $("replay").onclick = () => X && runAsk(X);
-async function showFrame(X, t, box) {
-  const im = await loadImg(frameSrc(X, nearestFrame(X, t))); if (!im) return; const r = $("askview").getBoundingClientRect(); askImg.width = r.width * 2; askImg.height = r.height * 2;
-  const g = askImg.getContext("2d"), s = Math.min(askImg.width / im.width, askImg.height / im.height), w = im.width * s, h = im.height * s, ox = (askImg.width - w) / 2, oy = (askImg.height - h) / 2;
-  g.fillStyle = "#000"; g.fillRect(0, 0, askImg.width, askImg.height); g.drawImage(im, ox, oy, w, h);
-  if (box) { g.strokeStyle = "#e0a21b"; g.lineWidth = 6; g.shadowColor = "#e0a21b"; g.shadowBlur = 20; g.strokeRect(ox + box[0] * w, oy + box[1] * h, (box[2] - box[0]) * w, (box[3] - box[1]) * h); g.shadowBlur = 0; }
-  askImg.style.opacity = 1;
+// ================================================================== ASK: rolling questions, the agent's search replayed in 3D
+const ask3d = new World($("askview")), feed = $("feed"), cap = $("cap3d"), qdots = $("qdots");
+let askGen = 0, askIdx = 0, askT = 0;
+const STOPPED = new Error("superseded");
+function sleep(ms, g) {                                            // waits only while the section is on screen
+  return new Promise((res, rej) => { let left = ms, last = performance.now();
+    const tick = () => { if (g !== askGen) return rej(STOPPED); const now = performance.now(); if (ask3d.visible) left -= now - last; last = now; left <= 0 ? res() : setTimeout(tick, 60); }; tick(); });
 }
-function runAsk(X) {
-  clearTimeout(askTimer); const T = X.task, steps = $("askSteps"), opts = $("askOpts"); steps.innerHTML = ""; opts.innerHTML = ""; if (!T) { $("askQ").textContent = ""; return; }
-  ask3d.set(X); askT = T.t ?? X.D.duration; askImg.style.opacity = 0;
-  $("askWho").textContent = `${T.answerer} · correct in ${T.consistency} runs`; $("askQ").textContent = T.question;
-  $("askLbl").textContent = T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video";
-  (T.options || []).forEach((o, i) => { const d = document.createElement("div"); d.className = "opt"; d.textContent = `${"ABCDE"[i]}. ${o}`; opts.appendChild(d); });
-  const cap = (t) => ($("askLbl").textContent = t);
-  const seq = [() => { if (T.t !== undefined) { showFrame(X, T.t, T.box); cap(`what you saw when asked (${fmt(T.t)})`); } else cap("the memory, after the whole video"); }];
-  for (const s of T.steps) {
-    const el = document.createElement("div"); el.className = "stepx";
-    if (s.kind === "search") {
-      const icon = { text: "⌕", time: "◷", position: "⌖" }[s.tool] || "⌕", ids = new Set(s.hits.flatMap((h) => h.obs));
-      el.innerHTML = `<div class="dot" style="background:#3987e5">${icon}</div><div><span class="chip">search ${s.tool}: ${Array.isArray(s.query) ? s.query.map((v) => v.toFixed(1)).join(", ") : s.query}</span>
-        <div class="moments">${s.hits.slice(0, 5).map((h) => `<div class="moment"><img src="${frameSrc(X, nearestFrame(X, h.t))}"><div><b>${fmt(h.t)}</b> · ${h.obs.length} objects</div></div>`).join("")}</div></div>`;
-      const nm = s.hits.length;
-      const said = `${T.question} ${T.options ? T.options[T.answer_idx] : ""}`.toLowerCase();
-      const keys = new Set([...ids].filter((id) => { const o = X.objById.get(id); return o && [o.name, ...o.tags].some((n) => said.includes(n.toLowerCase())); }));
-      seq.push(() => { askImg.style.opacity = 0; ask3d.highlight(ids, keys); cap(`lit: the objects in the ${nm} memory moments this search returned`);
-        const ps = [...ids].map((id) => posAt(X.objById.get(id), askT)).filter(Boolean);
-        if (ps.length) { const c = ps.reduce((a, p) => a.add(X.W2T(p)), new THREE.Vector3()).multiplyScalar(1 / ps.length); ask3d.focus(c, ask3d.rad * 0.9); } });
-    } else { el.innerHTML = `<div class="dot" style="background:#22b58a">✦</div><div class="think">${s.text}</div>`; seq.push(() => {}); }
-    steps.appendChild(el);
-  }
-  const fin = document.createElement("div"); fin.className = "stepx";
+function capSet(icon, html) { cap.innerHTML = `<span class="ic k-${icon}">${ICON[icon]}</span><span class="ct">${html}</span>`; cap.classList.add("on"); return cap.querySelector(".ct"); }
+function typeInto(els, text, g) {
+  return new Promise((res) => { let i = 0; const step = () => { if (g !== askGen) return res(); i = Math.min(text.length, i + 3); for (const e of els) e.textContent = text.slice(0, i); i < text.length ? setTimeout(step, 30) : res(); }; step(); });
+}
+function popIn(A, o, delay = 0) {
+  o.userData.k = 0.001; if (!o.isSprite) o.scale.setScalar(0.001);
+  A.tween(520, (k) => { const e = Math.max(0.001, easeBack(k)); o.userData.k = e; if (!o.isSprite) o.scale.setScalar(e); }, delay);
+}
+function link(A, a, b, color, delay = 0) {                         // an arc from a retrieved moment to an object it names, drawn as it grows
+  const mid = a.clone().lerp(b, 0.5).addScaledVector(UPV, a.distanceTo(b) * 0.3), pts = new THREE.QuadraticBezierCurve3(a, mid, b).getPoints(32);
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.95, fog: false }));
+  l.geometry.setDrawRange(0, 0); A.extra.add(l); A.tween(650, (k) => l.geometry.setDrawRange(0, Math.ceil(33 * k)), delay); return l;
+}
+function sweep(A, i0, i1) {                                        // a light running along the recorded path: the memory being scanned
+  const P = A.camPts, seg = new THREE.Line(new THREE.BufferGeometry().setFromPoints(P), new THREE.LineBasicMaterial({ color: 0x9cc3f5, fog: false }));
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(A.rad * 0.008, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false })); A.extra.add(seg, dot);
+  const L = Math.max(4, Math.round((i1 - i0) * 0.12));
+  A.tween(1250, (k) => { const i = Math.round(i0 + k * (i1 - i0)); seg.geometry.setDrawRange(Math.max(i0, i - L), Math.min(L, i - i0) + 1); dot.position.copy(P[i]); if (k >= 1) A.extra.remove(seg, dot); });
+}
+function ring(A, p) {                                              // a ripple opening at a queried place
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color: 0x9cc3f5, transparent: true, side: THREE.DoubleSide, fog: false }));
+  m.rotation.x = -Math.PI / 2; m.position.copy(p); A.extra.add(m);
+  A.tween(1250, (k) => { m.scale.setScalar(0.01 + A.rad * 0.3 * k); m.material.opacity = 1 - k * 0.7; });
+}
+const hms = (s) => { const m = /(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(s); return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : null; };
+const named = (o, text) => [o.name, ...o.tags].some((n) => n.length > 2 && new RegExp(`\\b${n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`).test(text));
+const keysOf = (X, T, ids) => { const said = `${T.question} ${T.options ? T.options[T.answer_idx] : ""}`.toLowerCase();
+  return new Set([...ids].filter((id) => { const o = X.objById.get(id); return o && named(o, said); })); };
+async function qTexture(X, T) {                                    // the frame the question was asked on, with the item it points at
+  const im = await loadImg(T.qframe ? X.A + T.qframe : frameSrc(X, nearestFrame(X, T.t))); if (!im) return null;
+  const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0);
+  if (T.box) { const [a, b, d, e] = T.box; g.strokeStyle = "#e0a21b"; g.lineWidth = Math.max(4, im.width * 0.008); g.shadowColor = "#e0a21b"; g.shadowBlur = 18; g.strokeRect(a * c.width, b * c.height, (d - a) * c.width, (e - b) * c.height); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function dim(objs) { for (const o of objs) o.traverse((c) => { if (c.material) { c.material.transparent = true; c.material.opacity = Math.min(c.material.opacity, 0.22); } }); }
+
+async function playSearch(X, T, s, add, g, prev) {
+  const A = ask3d, q = Array.isArray(s.query) ? `(${s.query.map((v) => v.toFixed(1)).join(", ")})` : s.query;
+  const verb = { text: "searches the memory for", time: "looks up the moment", position: "looks around the place" }[s.tool] || "searches for";
+  const row = add("s", `<div class="row"><span class="ic">${ICON[s.tool] || ICON.text}</span><span>${verb} <b>${esc(q)}</b></span></div><div class="moments"></div>`);
+  capSet(s.tool in ICON ? s.tool : "text", `${verb} <b>${esc(q)}</b>`); dim(prev); A.highlight(null);
+  const N = A.camPts.length - 1, ts = X.D.camera.map((c) => c[0]);
+  if (s.tool === "position" && Array.isArray(s.query)) { A.fit([X.W2T(s.query)], 3.2); ring(A, X.W2T(s.query)); }
+  else if (s.tool === "time" && hms(s.query) !== null) { const t0 = hms(s.query), i0 = ts.findIndex((t) => t >= t0 - 8), i1 = ts.findIndex((t) => t > t0 + 8);
+    const a = Math.max(0, i0), b = i1 < 0 ? N : Math.max(a + 1, i1); A.fit(A.camPts.slice(a, b + 1), 2.6); sweep(A, a, b); }
+  else { A.overview(); sweep(A, 0, N); }
+  await sleep(1400, g);
+  const hits = s.hits.slice(0, 5), pts = [], ids = new Set(), box = row.querySelector(".moments");
+  hits.forEach((h, k) => {
+    const src = frameSrc(X, nearestFrame(X, h.t)), fr = frustum(X, camLerp(X, h.t), A.rad * 0.06, 0x3987e5, tex(src), 1), dl = k * 260;
+    A.extra.add(fr); popIn(A, fr, dl); prev.push(fr); pts.push(fr.userData.centre, fr.userData.C);
+    const lab = textSprite(`${k + 1} · ${fmt(h.t)}`, "#cfe3fb", 26); lab.position.copy(fr.userData.C).addScaledVector(UPV, A.rad * 0.045); lab.userData.h = 0.034; A.extra.add(lab); popIn(A, lab, dl); prev.push(lab);
+    for (const id of h.obs) { const p = A.objPos(id, askT); if (!p) continue; ids.add(id); pts.push(p); prev.push(link(A, fr.userData.centre, p, col3(id), dl + 380)); }
+    box.insertAdjacentHTML("beforeend", `<div class="moment" style="animation-delay:${dl / 1000}s"><img src="${src}"><div><b>${fmt(h.t)}</b> · ${h.obs.length} objects</div></div>`);
+  });
+  A.highlight(ids.size ? ids : null, keysOf(X, T, ids)); if (pts.length) A.fit(pts, 1.7);
+  await sleep(900, g); capSet(s.tool in ICON ? s.tool : "text", `${hits.length} moments come back${ids.size ? ` · naming ${ids.size} objects in the memory` : ""}`);
+  await sleep(2600, g);
+}
+async function playThink(X, T, s, add, g) {
+  const A = ask3d, row = add("t", `<div class="row"><span class="ic k-think">${ICON.think}</span><span class="tt"></span></div>`), el = row.querySelector(".tt");
+  const said = s.text.toLowerCase(), ids = new Set(X.D.objects.filter((o) => A.byId.get(o.id)?.visible && named(o, said)).map((o) => o.id));
+  if (ids.size) { A.highlight(new Set([...(A.hl || []), ...ids]), ids); A.fit([...ids].map((id) => A.objPos(id, askT)).filter(Boolean), 2.6); }
+  await typeInto([el, capSet("think", "")], s.text, g); await sleep(1700, g);
+}
+async function playAnswer(X, T, add, g, qEl) {
+  const A = ask3d;
   if (T.preds) {
-    fin.innerHTML = `<div class="dot" style="background:#e0a21b">★</div><div><div class="verdict">${Object.entries(T.err_m).map(([n, e]) => `<span class="vb ${n === "LEDGER" ? "us" : ""}">${n} ${e == null ? "–" : e.toFixed(2) + " m"}</span>`).join("")}</div>
-      <div class="mini" style="margin-top:6px">distance from the true position</div></div>`;
-    seq.push(() => { askImg.style.opacity = 0; ask3d.highlight(new Set([T.answer_ob ?? -1]), new Set([T.answer_ob])); ask3d.clearExtra(); ask3d.marker(T.gt, 0xe0a21b, "★ truth", 2.4); cap("★ true position · every method's answer, joined to it");
-      const C = { LEDGER: 0x3987e5, ReMEmbR: 0xe8703a, OSNOM: 0x9085e9, DirectMe: 0xe66767, "no memory": 0x8a8984 };
-      let k = 0; for (const [n, p] of Object.entries(T.preds)) if (p) { ask3d.marker(p, C[n] ?? 0xffffff, `${n} ${T.err_m[n].toFixed(2)} m`, n === "LEDGER" ? 1.6 : 0.7 + 0.35 * k++); ask3d.line(p, T.gt, C[n] ?? 0xffffff); }
-      ask3d.focus(T.gt, ask3d.rad * 1.1); });
+    add("ans", `<div class="row"><span class="ic k-answer">${ICON.answer}</span><span>${esc(T.answer.text)}</span></div><div class="verdict">${Object.entries(T.err_m).map(([n, e]) =>
+      `<span class="vb ${n === "LEDGER" ? "us" : ""}">${n} ${e == null ? "–" : e.toFixed(2) + " m"}</span>`).join("")}</div><div class="mini" style="margin-top:4px">distance from the true position</div>`);
+    capSet("answer", `answer: <b>(${T.answer.position.map((v) => v.toFixed(1)).join(", ")})</b> · ${T.err_m.LEDGER.toFixed(2)} m from the truth`);
+    A.highlight(new Set([T.answer_ob ?? -1]), new Set([T.answer_ob])); A.marker(T.gt, 0xe0a21b, "★ truth", 2.2);
+    const C = { LEDGER: 0x3987e5, ReMEmbR: 0xe8703a, OSNOM: 0x9085e9, DirectMe: 0xe66767, "no memory": 0x8a8984 }, pts = [X.W2T(T.gt)];
+    for (const [n, p] of Object.entries(T.preds)) if (p) { A.marker(p, C[n] ?? 0xffffff, `${n} ${T.err_m[n].toFixed(2)} m`, n === "LEDGER" ? 1.5 : 0.8); A.line(p, T.gt, C[n] ?? 0xffffff); pts.push(X.W2T(p)); }
+    A.fit(pts, 1.5);
   } else {
-    fin.innerHTML = `<div class="dot" style="background:#e0a21b">✓</div><div><div class="verdict"><span class="vb us">LEDGER ✓</span>${Object.entries(T.baselines).filter(([, v]) => v !== null)
-      .map(([n, v]) => `<span class="vb ${v ? "ok" : "no"}">${n} ${v ? "✓" : "✗"}</span>`).join("")}</div><div class="mini" style="margin-top:6px">the same question, other methods</div></div>`;
-    seq.push(() => { opts.children[T.answer_idx]?.classList.add("right"); cap("the answer, from the lit memory objects"); });
+    const k = T.answer_idx, base = Object.entries(T.baselines || {}).filter(([, v]) => v !== null);
+    add("ans", `<div class="row"><span class="ic k-answer">${ICON.answer}</span><span><b>${"ABCDE"[k]}.</b> ${esc(T.options[k])}</span><span class="cons">right in ${T.consistency} runs</span></div>
+      <div class="verdict"><span class="vb us">LEDGER ✓</span>${base.map(([n, v]) => `<span class="vb ${v ? "ok" : "no"}">${n} ${v ? "✓" : "✗"}</span>`).join("")}</div>`);
+    qEl.querySelectorAll(".opt")[k]?.classList.add("right"); capSet("answer", `answer: <b>${"ABCDE"[k]}. ${esc(T.options[k])}</b>`);
+    const keys = keysOf(X, T, new Set(A.hl || [])); if (keys.size) { A.highlight(A.hl, keys); A.fit([...keys].map((id) => A.objPos(id, askT)).filter(Boolean), 2.8); }
   }
-  steps.appendChild(fin);
-  let i = 0; const go = () => { if (i >= seq.length || X.task !== T) return; seq[i](); if (i > 0) steps.children[i - 1]?.classList.add("on"); i++; askTimer = setTimeout(go, i === 1 ? 1800 : 2400); };
-  go();
 }
+async function playTask(X, T, g) {
+  const A = ask3d; A.clearExtra(); A.highlight(null); askT = T.t ?? X.D.duration;
+  [...qdots.children].forEach((b, j) => b.classList.toggle("on", j === askIdx));
+  const th = document.createElement("div"); th.className = "thread"; feed.appendChild(th); while (feed.children.length > 4) feed.firstChild.remove();
+  const add = (cls, html) => { const d = document.createElement("div"); d.className = `msg ${cls}`; d.innerHTML = html; th.appendChild(d);
+    setTimeout(() => d.classList.add("in"), 30); feed.scrollTop = feed.scrollHeight; return d; };
+  const qEl = add("q", `<div class="who">${T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video"}</div><div class="qt">${esc(T.question)}</div>` +
+    (T.options ? `<div class="opts">${T.options.map((o, i) => `<div class="opt">${"ABCDE"[i]}. ${esc(o)}</div>`).join("")}</div>` : ""));
+  if (T.t !== undefined) {                                          // where and when the question was asked
+    const c = camLerp(X, T.t), d = A.rad * 0.09, fr = frustum(X, c, d, 0xe0a21b, null, 1), b = basis(X, c); A.extra.add(fr); popIn(A, fr);
+    qTexture(X, T).then((t) => { if (t && g === askGen) { const pl = fr.userData.plane; pl.material.map = t; pl.material.needsUpdate = true; pl.visible = true; } });
+    A.fly(fr.userData.centre, b.C.clone().addScaledVector(b.F, -d * 3.4).addScaledVector(UPV, d * 1.3)); capSet("pin", `asked here, at ${fmt(T.t)}${T.box ? " · about the highlighted item" : ""}`);
+  } else { A.overview(); capSet("pin", "asked after the whole video"); }
+  await sleep(2600, g);
+  const prev = [];
+  for (const s of T.steps) await (s.kind === "search" ? playSearch(X, T, s, add, g, prev) : playThink(X, T, s, add, g));
+  await playAnswer(X, T, add, g, qEl); await sleep(T.preds ? 5600 : 4400, g);
+}
+async function rollAsk(X, g) {
+  const L = X.task?.tasks || []; if (!L.length) return;
+  try { for (;;) { await playTask(X, L[askIdx], g); askIdx = (askIdx + 1) % L.length; } } catch (e) { if (e !== STOPPED) console.error(e); }
+}
+function jump(X, j) { askIdx = j; rollAsk(X, ++askGen); }
+listeners.push((X) => {
+  ask3d.set(X); feed.innerHTML = ""; cap.classList.remove("on"); const L = X.task?.tasks || [];
+  $("askWho").textContent = `${X.task?.answerer || ""} · ${L.length} question${L.length === 1 ? "" : "s"}`;
+  qdots.innerHTML = ""; L.forEach((T, j) => { const b = document.createElement("button"); b.textContent = j + 1; b.title = T.question; b.onclick = () => jump(X, j); qdots.appendChild(b); });
+  jump(X, +(Q.get("q") || 0) % Math.max(1, L.length));
+});
 
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {
@@ -444,12 +624,15 @@ barChart("c1", R.hdepic, "%"); barChart("c2", R.vq3d, " m");
 let lastCount = -1, lastEv = null;
 function loop() {
   if (X) {
-    const t = tNow(), n = hero3d.update(t); hero3d.render(); if (n !== lastCount) { $("count").textContent = `${n} objects`; lastCount = n; }
+    const t = tNow();
+    if (hero.visible) { const n = heroUpdate(X, t); hero.render(); if (n !== lastCount) { $("count").textContent = `${n} objects in memory`; lastCount = n; } }
     fill.style.width = knob.style.left = `${(100 * t) / X.D.duration}%`; $("time").textContent = `${fmt(t)} / ${fmt(X.D.duration)}`;
     const ev = eventAt(X, t); if (ev !== lastEv) { $("ticker").textContent = ev ? ev.text : ""; lastEv = ev; }
-    ask3d.update(askT); ask3d.render(); frameC();
+    if (ask3d.visible) { ask3d.update(askT); ask3d.render(); }
+    frameC();
   }
   requestAnimationFrame(loop);
 }
 await select(Q.get("ds") || "hdepic"); loop();
+if (Q.get("only")) for (const el of document.querySelectorAll("section, .switch")) el.style.display = el.id === Q.get("only") ? "" : "none";   // (tests) one section
 resultsP.then((R) => { try { if (R) charts(R); } catch (e) { console.error(e); } });

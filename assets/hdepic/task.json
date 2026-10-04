@@ -1,122 +1,305 @@
 {
  "answerer": "ReMEmbR's agent reading LEDGER's memory",
- "question": "Which of these objects did the person put in/on the highlighted item?",
- "t": 156.0,
- "options": [
-  "tea towel, baking paper, hand blender cup",
-  "baking tray",
-  "shelf, baking paper, hand blender cup",
-  "orange towel, shelf",
-  "Nothing"
- ],
- "answer_idx": 1,
- "box": [
-  0.2879053811960464,
-  0.42768091403243247,
-  0.5947347350405376,
-  0.731389904383393
- ],
- "steps": [
+ "tasks": [
   {
-   "kind": "search",
-   "tool": "time",
-   "query": "00:02:36",
-   "hits": [
+   "qid": "3d_perception_object_contents_retrieval|3d_perception_object_contents_retrieval_128",
+   "question": "Which of these objects did the person put in/on the highlighted item?",
+   "options": [
+    "tea towel, baking paper, hand blender cup",
+    "baking tray",
+    "shelf, baking paper, hand blender cup",
+    "orange towel, shelf",
+    "Nothing"
+   ],
+   "answer_idx": 1,
+   "steps": [
     {
-     "t": 156.0,
-     "pos": [
-      -0.985,
-      -0.287,
-      -0.501
-     ],
-     "obs": [
-      12,
-      29,
-      55,
-      145,
-      19,
-      31,
-      56,
-      71,
-      73,
-      74,
-      76,
-      85
-     ],
-     "text": "The camera wearer is opening the oven door in a kitchen. Objects seen: tongs (The object is a pair of tongs that was moved from a cluttered kitchen counter near a sink,...) at (-2.0, -0.2, -0.6); storage bin (The object "
+     "kind": "search",
+     "tool": "time",
+     "query": "00:02:36",
+     "hits": [
+      {
+       "t": 156.0,
+       "pos": [
+        -0.985,
+        -0.287,
+        -0.501
+       ],
+       "obs": [
+        12,
+        29,
+        55,
+        145,
+        19,
+        31,
+        56,
+        71,
+        73,
+        74,
+        76,
+        85
+       ],
+       "text": "The camera wearer is opening the oven door in a kitchen. Objects seen: tongs (The object is a pair of tongs that was moved from a cluttered kitchen counter near a sink,...) at (-2.0, -0.2, -0.6); storage bin (The object "
+      },
+      {
+       "t": 152.0,
+       "pos": [
+        -0.891,
+        -0.836,
+        0.071
+       ],
+       "obs": [
+        52,
+        79,
+        49,
+        89,
+        134
+       ],
+       "text": "The camera wearer is reaching into a kitchen cabinet to grab dishes while standing near the sink. Objects seen: frying pan (The object is a black frying pan that was moved from a wooden countertop next to a red-handled.."
+      },
+      {
+       "t": 160.0,
+       "pos": [
+        -0.551,
+        -0.5,
+        0.068
+       ],
+       "obs": [
+        121,
+        126,
+        122,
+        142,
+        100,
+        137,
+        28,
+        20,
+        94,
+        120,
+        131,
+        148
+       ],
+       "text": "The camera wearer is looking at a room with a table, plants, and artwork on the walls. Objects seen: radiator (The object is a white, ribbed radiator that was consistently observed mounted on the wall beneath a wooden..."
+      },
+      {
+       "t": 148.0,
+       "pos": [
+        -0.371,
+        -1.09,
+        -0.455
+       ],
+       "obs": [
+        58,
+        77,
+        81,
+        137
+       ],
+       "text": "The camera wearer is looking at a kitchen counter with an open dishwasher, a tray, and various items on top. Objects seen: bag (The object is a dark-colored bag that was initially observed as a crumpled brown paper bag r"
+      }
+     ]
     },
     {
-     "t": 152.0,
-     "pos": [
-      -0.891,
-      -0.836,
-      0.071
-     ],
-     "obs": [
-      52,
-      79,
-      49,
-      89,
-      134
-     ],
-     "text": "The camera wearer is reaching into a kitchen cabinet to grab dishes while standing near the sink. Objects seen: frying pan (The object is a black frying pan that was moved from a wooden countertop next to a red-handled.."
-    },
-    {
-     "t": 160.0,
-     "pos": [
-      -0.551,
-      -0.5,
-      0.068
-     ],
-     "obs": [
-      121,
-      126,
-      122,
-      142,
-      100,
-      137,
-      28,
-      20,
-      94,
-      120,
-      131,
-      148
-     ],
-     "text": "The camera wearer is looking at a room with a table, plants, and artwork on the walls. Objects seen: radiator (The object is a white, ribbed radiator that was consistently observed mounted on the wall beneath a wooden..."
-    },
-    {
-     "t": 148.0,
-     "pos": [
-      -0.371,
-      -1.09,
-      -0.455
-     ],
-     "obs": [
-      58,
-      77,
-      81,
-      137
-     ],
-     "text": "The camera wearer is looking at a kitchen counter with an open dishwasher, a tray, and various items on top. Objects seen: bag (The object is a dark-colored bag that was initially observed as a crumpled brown paper bag r"
+     "kind": "think",
+     "text": "At the referenced time, the bounding box corresponds to the oven, and the observed action is the person putting a baking tray into/on it."
     }
-   ]
+   ],
+   "answer": {
+    "text": "B",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "3d perception",
+   "t": 156.0,
+   "qframe": "qframes/3d_perception_object_contents_retrieval_128.jpg",
+   "box": [
+    0.2879053811960464,
+    0.42768091403243247,
+    0.5947347350405376,
+    0.731389904383393
+   ],
+   "baselines": {
+    "AMEGO": false,
+    "ReMEmbR": true,
+    "DirectMe": false,
+    "OSNOM": true,
+    "no memory": false
+   }
   },
   {
-   "kind": "think",
-   "text": "At time 00:02:36, the indicated bounding box corresponds to the open oven area, and the observed action mentions a black baking tray being pulled out of the open oven. The object associated with being put in/on that item is the baking tray."
+   "qid": "object_motion_object_movement_counting|object_motion_object_movement_counting_76",
+   "question": "How many times did the highlighted object change locations in the video?",
+   "options": [
+    "2",
+    "1",
+    "4",
+    "6",
+    "3"
+   ],
+   "answer_idx": 1,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "time",
+     "query": "00:01:35",
+     "hits": [
+      {
+       "t": 96.0,
+       "pos": [
+        -1.214,
+        -1.19,
+        0.124
+       ],
+       "obs": [
+        39,
+        6,
+        99
+       ],
+       "text": "The camera wearer is looking at a cabinet filled with plates and glasses in a kitchen. Objects seen: wine glass (clear wine glass with a stem and bowl, positioned upright on the middle shelf of an open kitchen...) at (-2"
+      },
+      {
+       "t": 92.0,
+       "pos": [
+        -1.204,
+        -1.221,
+        0.129
+       ],
+       "obs": [
+        39,
+        138
+       ],
+       "text": "The camera wearer is reaching into a cabinet to grab a glass. Objects seen: wine glass (clear wine glass with a stem and bowl, positioned upright on the middle shelf of an open kitchen...) at (-2.2, -1.2, 0.4); trash bin"
+      },
+      {
+       "t": 100.0,
+       "pos": [
+        -1.192,
+        -1.172,
+        0.138
+       ],
+       "obs": [
+        40,
+        138
+       ],
+       "text": "The camera wearer is placing a glass on a shelf in a kitchen cabinet. Objects seen: bowl (small, light-colored bowl with a dark rim, resting on a stack of similar bowls on the lower shelf...) at (-2.5, -0.4, -0.1); trash"
+      },
+      {
+       "t": 88.0,
+       "pos": [
+        -0.683,
+        -0.996,
+        0.035
+       ],
+       "obs": [
+        0,
+        79
+       ],
+       "text": "The camera wearer is looking at a kitchen sink filled with dishes and utensils. Objects seen: tongs (The object is a pair of black kitchen tongs resting on a white dish rack. It is positioned...) at (-1.2, -1.9, -0.9); s"
+      }
+     ]
+    },
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "clear wine glass on cabinet shelf being grabbed and placed",
+     "hits": [
+      {
+       "t": 92.0,
+       "pos": [
+        -1.204,
+        -1.221,
+        0.129
+       ],
+       "obs": [
+        39,
+        138
+       ],
+       "text": "The camera wearer is reaching into a cabinet to grab a glass. Objects seen: wine glass (clear wine glass with a stem and bowl, positioned upright on the middle shelf of an open kitchen...) at (-2.2, -1.2, 0.4); trash bin"
+      },
+      {
+       "t": 136.0,
+       "pos": [
+        -1.154,
+        -1.191,
+        0.13
+       ],
+       "obs": [
+        39,
+        138
+       ],
+       "text": "The camera wearer is reaching for a glass in a cabinet filled with dishes and glasses. Objects seen: wine glass (clear wine glass with a stem and bowl, positioned upright on the middle shelf of an open kitchen...) at (-2"
+      },
+      {
+       "t": 40.0,
+       "pos": [
+        -1.162,
+        -1.162,
+        0.14
+       ],
+       "obs": [
+        39,
+        43,
+        96
+       ],
+       "text": "The camera wearer is reaching into a cabinet to grab a plate. Objects seen: wine glass (clear wine glass with a stem and bowl, positioned upright on the middle shelf of an open kitchen...) at (-2.2, -1.4, 0.3); cup (tran"
+      },
+      {
+       "t": 96.0,
+       "pos": [
+        -1.214,
+        -1.19,
+        0.124
+       ],
+       "obs": [
+        39,
+        6,
+        99
+       ],
+       "text": "The camera wearer is looking at a cabinet filled with plates and glasses in a kitchen. Objects seen: wine glass (clear wine glass with a stem and bowl, positioned upright on the middle shelf of an open kitchen...) at (-2"
+      },
+      {
+       "t": 100.0,
+       "pos": [
+        -1.192,
+        -1.172,
+        0.138
+       ],
+       "obs": [
+        40,
+        138
+       ],
+       "text": "The camera wearer is placing a glass on a shelf in a kitchen cabinet. Objects seen: bowl (small, light-colored bowl with a dark rim, resting on a stack of similar bowls on the lower shelf...) at (-2.5, -0.4, -0.1); trash"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "The object at the given time is the glass/wine glass in the cabinet. It appears to be moved once when it is grabbed and then placed back in a shelf location, so the best count of location changes is 1."
+    }
+   ],
+   "answer": {
+    "text": "B",
+    "position": null,
+    "time": null
+   },
+   "consistency": "2/3",
+   "grounded": false,
+   "kind": "object motion",
+   "t": 95.4,
+   "qframe": "qframes/object_motion_object_movement_counting_76.jpg",
+   "box": [
+    0.5263160511363636,
+    0.4228671875,
+    0.5898366477272727,
+    0.5081669034090909
+   ],
+   "baselines": {
+    "AMEGO": false,
+    "ReMEmbR": true,
+    "DirectMe": false,
+    "OSNOM": false,
+    "no memory": true
+   }
   }
- ],
- "answer": {
-  "text": "B",
-  "position": null,
-  "time": null
- },
- "consistency": "3/3",
- "baselines": {
-  "AMEGO": false,
-  "ReMEmbR": true,
-  "DirectMe": false,
-  "OSNOM": true,
-  "no memory": false
- }
+ ]
 }

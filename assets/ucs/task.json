@@ -1,108 +1,1088 @@
 {
  "answerer": "ReMEmbR's agent reading LEDGER's memory",
- "question": "Where did I see the fire extinguisher?",
- "t": 15.0,
- "options": [
-  "To the right of the escalator.",
-  "Behind the escalator.",
-  "To the left of the escalator in front of you.",
-  "It was to the left of the escalator behind you, not the one directly ahead.",
-  "You saw it to the left of an escalator off to your right rather than the escalator in front."
- ],
- "answer_idx": 2,
- "steps": [
+ "tasks": [
   {
-   "kind": "search",
-   "tool": "text",
-   "query": "fire extinguisher near escalator left right behind",
-   "hits": [
+   "qid": "01303_2_T2",
+   "question": "Where did I see the fire extinguisher?",
+   "options": [
+    "To the right of the escalator.",
+    "Behind the escalator.",
+    "To the left of the escalator in front of you.",
+    "It was to the left of the escalator behind you, not the one directly ahead.",
+    "You saw it to the left of an escalator off to your right rather than the escalator in front."
+   ],
+   "answer_idx": 2,
+   "steps": [
     {
-     "t": 8.0,
-     "pos": [
-      -0.208,
-      -0.061,
-      0.162
-     ],
-     "obs": [
-      58,
-      28,
-      10,
-      11,
-      72,
-      73,
-      12,
-      14
-     ],
-     "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+     "kind": "search",
+     "tool": "text",
+     "query": "fire extinguisher near escalator",
+     "hits": [
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 12.0,
+       "pos": [
+        0.104,
+        -0.078,
+        -0.193
+       ],
+       "obs": [
+        58,
+        28
+       ],
+       "text": "The camera wearer is riding an escalator in a supermarket, with people ahead and food displays to the left. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, "
+      },
+      {
+       "t": 0.0,
+       "pos": [
+        -2.034,
+        -0.011,
+        1.483
+       ],
+       "obs": [
+        0,
+        55,
+        3,
+        4,
+        5,
+        6,
+        8,
+        27,
+        43,
+        46,
+        49
+       ],
+       "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+      }
+     ]
     },
     {
-     "t": 4.0,
-     "pos": [
-      -0.705,
-      -0.062,
-      0.47
-     ],
-     "obs": [
-      28,
-      10,
-      11,
-      56,
-      73
-     ],
-     "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
-    },
-    {
-     "t": 12.0,
-     "pos": [
-      0.104,
-      -0.078,
-      -0.193
-     ],
-     "obs": [
-      58,
-      28
-     ],
-     "text": "The camera wearer is riding an escalator in a supermarket, with people ahead and food displays to the left. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, "
-    },
-    {
-     "t": 0.0,
-     "pos": [
-      -2.034,
-      -0.011,
-      1.483
-     ],
-     "obs": [
-      0,
-      55,
-      3,
-      4,
-      5,
-      6,
-      8,
-      27,
-      43,
-      46,
-      49
-     ],
-     "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+     "kind": "think",
+     "text": "At 00:00:08, the fire extinguisher is at (3.3, 0.4, -0.7) while the escalator arrow sign is at (2.7, 0.6, 0.1). The extinguisher is farther ahead and to the left relative to the escalator in front, matching option C better than the alternatives."
     }
-   ]
+   ],
+   "answer": {
+    "text": "C",
+    "position": null,
+    "time": null
+   },
+   "consistency": "2/3",
+   "grounded": true,
+   "kind": "Relative Position & Orientation Memory",
+   "t": 15.0,
+   "qframe": "qframes/01303_2_T2.jpg",
+   "baselines": {
+    "ReMEmbR": false,
+    "DirectMe": null,
+    "48 frames": false,
+    "no memory": false
+   }
   },
   {
-   "kind": "think",
-   "text": "The fire extinguisher was seen at time 00:00:08 while on the escalator. Relative to the escalator view, it appeared on the left side ahead near the food stall area, matching 'to the left of the escalator in front of you'."
+   "qid": "01303_1_T2",
+   "question": "Where did I see the man wearing a black mask?",
+   "options": [
+    "To the right of the woman in a black mask at your front-left.",
+    "To her left at front-left.",
+    "To her right at front-right.",
+    "He was to the right of the woman in a black mask, but she was positioned at your front-right.",
+    "You saw him to the right of the masked woman when she was behind you on the left side."
+   ],
+   "answer_idx": 0,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "man wearing a black mask woman wearing a black mask relative position left right front-left front-right",
+     "hits": [
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 0.0,
+       "pos": [
+        -2.034,
+        -0.011,
+        1.483
+       ],
+       "obs": [
+        0,
+        55,
+        3,
+        4,
+        5,
+        6,
+        8,
+        27,
+        43,
+        46,
+        49
+       ],
+       "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "From the prior observation, the correct relation is that the man wearing a black mask was to the right of the woman in a black mask when she was at the front-left."
+    }
+   ],
+   "answer": {
+    "text": "A",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "Relative Position & Orientation Memory",
+   "t": 6.0,
+   "qframe": "qframes/01303_1_T2.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": true
+   }
+  },
+  {
+   "qid": "01303_2",
+   "question": "Where is the man in the black mask?",
+   "options": [
+    "To the left of her.",
+    "Behind her.",
+    "To the right of the woman with the black mask.",
+    "He is in front of the woman with the black mask, positioned between her and the camera.",
+    "He is to the right of the woman with the black hat, not the woman wearing the black mask."
+   ],
+   "answer_idx": 2,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "woman with black mask and man in black mask standing relative position",
+     "hits": [
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 0.0,
+       "pos": [
+        -2.034,
+        -0.011,
+        1.483
+       ],
+       "obs": [
+        0,
+        55,
+        3,
+        4,
+        5,
+        6,
+        8,
+        27,
+        43,
+        46,
+        49
+       ],
+       "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "From the scene, the man in the black mask is positioned to the right of the woman with the black mask."
+    }
+   ],
+   "answer": {
+    "text": "C",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "Relative Position & Orientation Memory",
+   "t": 10.0,
+   "qframe": "qframes/01303_2.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": true
+   }
+  },
+  {
+   "qid": "01303_1_T1",
+   "question": "Where did I see the man wearing a black mask?",
+   "options": [
+    "In front of her.",
+    "To her right at front-left.",
+    "He was behind the woman in a black mask, but she was directly behind you instead of in front.",
+    "You saw him behind the masked woman, though she was in back of you rather than directly ahead.",
+    "Behind the woman in a black mask directly in front of you."
+   ],
+   "answer_idx": 4,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "man wearing a black mask woman in a black mask relative position behind in front",
+     "hits": [
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 0.0,
+       "pos": [
+        -2.034,
+        -0.011,
+        1.483
+       ],
+       "obs": [
+        0,
+        55,
+        3,
+        4,
+        5,
+        6,
+        8,
+        27,
+        43,
+        46,
+        49
+       ],
+       "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "The scene descriptions indicate people ahead on the escalator, with the masked man positioned behind the woman in a black mask who was directly in front of you. That matches option E."
+    }
+   ],
+   "answer": {
+    "text": "E",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "Relative Position & Orientation Memory",
+   "t": 11.0,
+   "qframe": "qframes/01303_1_T1.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": true
+   }
+  },
+  {
+   "qid": "01303_4",
+   "question": "Where is the fire extinguisher?",
+   "options": [
+    "Right side of the escalator.",
+    "Left side of the escalator.",
+    "In front of the escalator.",
+    "It is on the floor behind the escalator, slightly offset from the center.",
+    "It is positioned above the escalator, attached near the ceiling rather than at ground level."
+   ],
+   "answer_idx": 1,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "fire extinguisher near escalator",
+     "hits": [
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 12.0,
+       "pos": [
+        0.104,
+        -0.078,
+        -0.193
+       ],
+       "obs": [
+        58,
+        28
+       ],
+       "text": "The camera wearer is riding an escalator in a supermarket, with people ahead and food displays to the left. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, "
+      },
+      {
+       "t": 0.0,
+       "pos": [
+        -2.034,
+        -0.011,
+        1.483
+       ],
+       "obs": [
+        0,
+        55,
+        3,
+        4,
+        5,
+        6,
+        8,
+        27,
+        43,
+        46,
+        49
+       ],
+       "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "The fire extinguisher is described near the escalator and appears on the wall by the food stall side, which is the left side of the escalator in the scene."
+    }
+   ],
+   "answer": {
+    "text": "B",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "Relative Position & Orientation Memory",
+   "t": 15.0,
+   "qframe": "qframes/01303_4.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": false,
+    "no memory": false
+   }
+  },
+  {
+   "qid": "01303_4_T2",
+   "question": "Where is the aunt in yellow clothes relative to me?",
+   "options": [
+    "To your left.",
+    "In front of you.",
+    "To your right.",
+    "She is behind you, positioned slightly off to one side as you look ahead.",
+    "She is above you, appearing higher up relative to your viewpoint rather than beside you."
+   ],
+   "answer_idx": 2,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "aunt in yellow clothes relative position",
+     "hits": [
+      {
+       "t": 20.0,
+       "pos": [
+        -0.084,
+        -0.028,
+        0.027
+       ],
+       "obs": [
+        17,
+        61,
+        30,
+        16,
+        68
+       ],
+       "text": "The camera wearer is talking to a woman in a red jacket in a mall. Place: supermarket. Objects seen: jacket (The object is a red jacket with black trim, worn by a person standing in what appears to...) at (-1.1, 0.3, 1.4"
+      },
+      {
+       "t": 24.0,
+       "pos": [
+        -0.112,
+        -0.031,
+        -0.01
+       ],
+       "obs": [
+        59,
+        17,
+        18,
+        33,
+        34,
+        71
+       ],
+       "text": "The camera wearer is looking at a woman in a red jacket pushing a shopping cart in a store. Place: shopping mall. Objects seen: poster (The object is a red promotional poster advertising new member benefits, featuring te"
+      },
+      {
+       "t": 36.0,
+       "pos": [
+        0.197,
+        -0.01,
+        0.049
+       ],
+       "obs": [
+        59,
+        0,
+        37,
+        22,
+        38,
+        39,
+        40,
+        52
+       ],
+       "text": "The camera wearer is standing in a store, holding a bag of food, and looking at a woman wearing an apron. Place: supermarket. Objects seen: poster (The object is a red promotional poster advertising new member benefits t"
+      },
+      {
+       "t": 32.0,
+       "pos": [
+        -0.035,
+        -0.004,
+        -0.005
+       ],
+       "obs": [
+        17,
+        35,
+        37,
+        20,
+        21
+       ],
+       "text": "The camera wearer is pointing at a sign in a mall. Place: shopping mall. Objects seen: jacket (The object is a red jacket with black trim that was worn by a person standing in a...) at (-0.6, 0.0, 1.0); sofa (The object "
+      },
+      {
+       "t": 40.0,
+       "pos": [
+        0.272,
+        -0.032,
+        0.133
+       ],
+       "obs": [
+        58,
+        72,
+        75,
+        23,
+        64,
+        69
+       ],
+       "text": "The camera wearer is looking at an escalator in a store. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text mounted on the glass panel...) at (1.3, 0.1, -0.9); "
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "The only mention of yellow clothing is a person in a yellow shirt/cap at time 00:00:36, located at about (1.2, -0.4, 0.7) relative to the viewer. Positive x indicates the person is to the right."
+    }
+   ],
+   "answer": {
+    "text": "C",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "Object Category Recall",
+   "t": 40.0,
+   "qframe": "qframes/01303_4_T2.jpg",
+   "baselines": {
+    "ReMEmbR": false,
+    "DirectMe": null,
+    "48 frames": false,
+    "no memory": false
+   }
+  },
+  {
+   "qid": "01303_9",
+   "question": "Did I get on the escalator?",
+   "options": [
+    "Yes.",
+    "No."
+   ],
+   "answer_idx": 0,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "getting on an escalator riding escalator stepping onto escalator",
+     "hits": [
+      {
+       "t": 44.0,
+       "pos": [
+        0.223,
+        -0.226,
+        -1.192
+       ],
+       "obs": [
+        13,
+        57,
+        66,
+        75,
+        41
+       ],
+       "text": "The camera wearer is riding an escalator in a mall, with a person in front of them. Place: escalator. Objects seen: jacket (The object is a black jacket worn by a person standing on an escalator in a public space,...) at"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 12.0,
+       "pos": [
+        0.104,
+        -0.078,
+        -0.193
+       ],
+       "obs": [
+        58,
+        28
+       ],
+       "text": "The camera wearer is riding an escalator in a supermarket, with people ahead and food displays to the left. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, "
+      },
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 40.0,
+       "pos": [
+        0.272,
+        -0.032,
+        0.133
+       ],
+       "obs": [
+        58,
+        72,
+        75,
+        23,
+        64,
+        69
+       ],
+       "text": "The camera wearer is looking at an escalator in a store. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text mounted on the glass panel...) at (1.3, 0.1, -0.9); "
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "The observations repeatedly describe the camera wearer as standing on, walking on, or riding an escalator, so the best answer is yes."
+    }
+   ],
+   "answer": {
+    "text": "A",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "My Trajectory",
+   "t": 47.0,
+   "qframe": "qframes/01303_9.jpg",
+   "baselines": {
+    "ReMEmbR": false,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": false
+   }
+  },
+  {
+   "qid": "01303_5_T2",
+   "question": "Did I take an escalator?",
+   "options": [
+    "Yes.",
+    "No."
+   ],
+   "answer_idx": 0,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "person riding an escalator or taking an escalator",
+     "hits": [
+      {
+       "t": 44.0,
+       "pos": [
+        0.223,
+        -0.226,
+        -1.192
+       ],
+       "obs": [
+        13,
+        57,
+        66,
+        75,
+        41
+       ],
+       "text": "The camera wearer is riding an escalator in a mall, with a person in front of them. Place: escalator. Objects seen: jacket (The object is a black jacket worn by a person standing on an escalator in a public space,...) at"
+      },
+      {
+       "t": 48.0,
+       "pos": [
+        1.379,
+        -0.274,
+        -2.144
+       ],
+       "obs": [
+        65,
+        24,
+        42,
+        53
+       ],
+       "text": "The camera wearer is riding an escalator in a store, following a person in a black jacket. Place: supermarket. Objects seen: poster (The object is a vertical poster with Chinese text and imagery mounted on a white wall i"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 12.0,
+       "pos": [
+        0.104,
+        -0.078,
+        -0.193
+       ],
+       "obs": [
+        58,
+        28
+       ],
+       "text": "The camera wearer is riding an escalator in a supermarket, with people ahead and food displays to the left. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, "
+      },
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "The memory explicitly mentions riding, standing on, and walking down an escalator multiple times, so the correct choice is Yes."
+    }
+   ],
+   "answer": {
+    "text": "A",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": true,
+   "kind": "My Trajectory",
+   "t": 54.0,
+   "qframe": "qframes/01303_5_T2.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": false
+   }
+  },
+  {
+   "qid": "01303_3_T2",
+   "question": "How many people in front of me were wearing red clothes?",
+   "options": [
+    "One person.",
+    "Two people.",
+    "No one in front of you is wearing red.",
+    "There was one person in front of you wearing red clothing at that moment.",
+    "You had two people ahead of you who were dressed in red."
+   ],
+   "answer_idx": 2,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "people in front wearing red clothes",
+     "hits": [
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 4.0,
+       "pos": [
+        -0.705,
+        -0.062,
+        0.47
+       ],
+       "obs": [
+        28,
+        10,
+        11,
+        56,
+        73
+       ],
+       "text": "The camera wearer is walking down an escalator in a mall, with people ahead and a food stall to the left. Place: escalator. Objects seen: store (refrigerated display case filled with packaged food items, positioned on th"
+      },
+      {
+       "t": 0.0,
+       "pos": [
+        -2.034,
+        -0.011,
+        1.483
+       ],
+       "obs": [
+        0,
+        55,
+        3,
+        4,
+        5,
+        6,
+        8,
+        27,
+        43,
+        46,
+        49
+       ],
+       "text": "The camera wearer is walking through a shopping mall, passing by an escalator and people carrying bags. Place: supermarket. Objects seen: jacket (black jacket with gray stripes on the back, worn by a person walking throu"
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "From the observed scenes on the escalator and in the mall, people ahead are described wearing black jackets and coats, with no red clothing visible on people in front. So the best answer is that no one in front was wearing red."
+    }
+   ],
+   "answer": {
+    "text": "C",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": false,
+   "kind": "Quantity Change Tracking",
+   "t": 10.0,
+   "qframe": "qframes/01303_3_T2.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": true
+   }
+  },
+  {
+   "qid": "01303_3_T1",
+   "question": "How many people in front of me were wearing red clothes?",
+   "options": [
+    "Zero people.",
+    "There is 1 person in front of you wearing red.",
+    "Two people.",
+    "There were no people in front of you wearing red clothes at the time.",
+    "You saw two people in front of you dressed in red clothing."
+   ],
+   "answer_idx": 1,
+   "steps": [
+    {
+     "kind": "search",
+     "tool": "text",
+     "query": "people in front wearing red clothes",
+     "hits": [
+      {
+       "t": 20.0,
+       "pos": [
+        -0.084,
+        -0.028,
+        0.027
+       ],
+       "obs": [
+        17,
+        61,
+        30,
+        16,
+        68
+       ],
+       "text": "The camera wearer is talking to a woman in a red jacket in a mall. Place: supermarket. Objects seen: jacket (The object is a red jacket with black trim, worn by a person standing in what appears to...) at (-1.1, 0.3, 1.4"
+      },
+      {
+       "t": 24.0,
+       "pos": [
+        -0.112,
+        -0.031,
+        -0.01
+       ],
+       "obs": [
+        59,
+        17,
+        18,
+        33,
+        34,
+        71
+       ],
+       "text": "The camera wearer is looking at a woman in a red jacket pushing a shopping cart in a store. Place: shopping mall. Objects seen: poster (The object is a red promotional poster advertising new member benefits, featuring te"
+      },
+      {
+       "t": 8.0,
+       "pos": [
+        -0.208,
+        -0.061,
+        0.162
+       ],
+       "obs": [
+        58,
+        28,
+        10,
+        11,
+        72,
+        73,
+        12,
+        14
+       ],
+       "text": "The camera wearer is standing on an escalator in a shopping mall, looking at people ahead. Place: escalator. Objects seen: poster (The object is a white rectangular sign with red and black Chinese text, mounted on the gl"
+      },
+      {
+       "t": 28.0,
+       "pos": [
+        0.001,
+        -0.0,
+        -0.001
+       ],
+       "obs": [
+        59,
+        35,
+        19,
+        36
+       ],
+       "text": "The camera wearer is walking through a mall, looking at a red sign with Chinese characters. Place: shopping mall. Objects seen: poster (The object is a red promotional poster advertising new member benefits, featuring te"
+      },
+      {
+       "t": 16.0,
+       "pos": [
+        -0.02,
+        -0.022,
+        -0.068
+       ],
+       "obs": [
+        59,
+        30,
+        15,
+        29,
+        32,
+        50,
+        51
+       ],
+       "text": "The camera wearer is walking through a store, with a person in front of them. Place: supermarket. Objects seen: poster (The object is a red promotional poster advertising new member benefits, featuring text and QR codes."
+      }
+     ]
+    },
+    {
+     "kind": "think",
+     "text": "From the observations, there is one person in front wearing a red jacket. No evidence shows two people in front wearing red."
+    }
+   ],
+   "answer": {
+    "text": "B",
+    "position": null,
+    "time": null
+   },
+   "consistency": "3/3",
+   "grounded": false,
+   "kind": "Quantity Change Tracking",
+   "t": 35.0,
+   "qframe": "qframes/01303_3_T1.jpg",
+   "baselines": {
+    "ReMEmbR": true,
+    "DirectMe": null,
+    "48 frames": true,
+    "no memory": false
+   }
   }
- ],
- "answer": {
-  "text": "C",
-  "position": null,
-  "time": null
- },
- "consistency": "3/3",
- "baselines": {
-  "ReMEmbR": false,
-  "DirectMe": null,
-  "48 frames": false,
-  "no memory": false
- }
+ ]
 }

@@ -20,7 +20,7 @@
   nav b { color:var(--ink); letter-spacing:.18em; font-size:13px; margin-right:auto; }
   nav a { text-decoration:none; } nav a:hover { color:var(--ink); }
   @media (max-width:700px) { nav a { display:none; } }
-  .switch { position:sticky; top:46px; z-index:40; display:flex; justify-content:center; padding:8px 0; pointer-events:none; }
+  .switch { position:sticky; top:46px; z-index:40; display:flex; justify-content:center; padding:8px 0; pointer-events:none; margin-bottom:-52px; }
   .switch div { pointer-events:auto; display:flex; gap:4px; background:#0d0f12e6; backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:999px; padding:4px; }
   .switch button { border:0; background:transparent; color:var(--ink2); padding:7px 14px; border-radius:999px; cursor:pointer; font-size:13px; display:flex; gap:7px; align-items:baseline; }
   .switch button small { color:var(--ink3); font-size:11px; }
@@ -33,24 +33,67 @@
   .btns { display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
   .btn { border:1px solid var(--line); border-radius:999px; padding:8px 16px; font-size:13px; color:var(--ink); text-decoration:none; background:var(--bg2); }
   .btn:hover { border-color:#3a414c; }
-  .stage { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:30px; align-items:start; }
-  @media (max-width:880px) { .stage { grid-template-columns:1fr; } }
   .pane { position:relative; background:var(--panel); border:1px solid var(--line); border-radius:20px; overflow:hidden; aspect-ratio:var(--ar); }
   .pane.sq { aspect-ratio:1/1; }
   .pane video, .pane canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
   .pane video { object-fit:contain; background:#000; }
   h1.title { font-size:clamp(30px,4.4vw,58px); line-height:1.02; letter-spacing:-.035em; margin:8px 0 0; font-weight:780; }
   section.wide { max-width:1680px; }
-  .stage { width:min(100%, calc(2 * 74vh * var(--arn, 1) + 14px)); margin-left:auto; margin-right:auto; }
   .csub { font-size:15px; color:var(--ink2); margin:-10px 0 12px; } .csub b { color:#fff; }
-  .tags3d { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .tags3d { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:3; }
   .tags3d span { position:absolute; left:0; top:0; font:600 11px/15px Inter,-apple-system,sans-serif; color:#e9ecf1; background:rgba(8,10,13,.72);
                  border-left:3px solid #888; padding:1px 6px; border-radius:4px; white-space:nowrap; will-change:transform; }
   .tags3d span.lit { font-size:13px; line-height:17px; color:#fff; background:rgba(8,10,13,.88); }
   .tags3d span.key { font-size:15px; line-height:20px; color:#fff; background:rgba(40,30,6,.92); border-left-color:#e0a21b !important; box-shadow:0 0 0 1px #e0a21b88; z-index:2; }
-  .pane .lbl { position:absolute; left:14px; top:12px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#ffffffbb; text-shadow:0 1px 2px #000; pointer-events:none; }
+  .pane .lbl, .pip .lbl { position:absolute; left:14px; top:12px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#ffffffbb; text-shadow:0 1px 2px #000; pointer-events:none; }
   .ticker { position:absolute; left:14px; right:14px; bottom:12px; font-size:13px; color:#fff; text-shadow:0 1px 3px #000; pointer-events:none; }
-  .count { position:absolute; right:14px; top:10px; font:600 12px ui-monospace,Menlo,monospace; color:#9cc3f5; pointer-events:none; }
+  .count { position:absolute; right:clamp(16px,3vw,40px); top:150px; z-index:6; font:600 12px ui-monospace,Menlo,monospace; color:#9cc3f5; pointer-events:none; text-shadow:0 1px 3px #000; }
+  /* hero: the wearer moving through the reconstructed scene */
+  .heroW { max-width:none; padding:0; }
+  .world { position:relative; height:max(600px, 100vh); background:radial-gradient(ellipse at 50% 45%, #121820, #060708 72%); overflow:hidden; }
+  .world > canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .scrim { position:absolute; inset:0; pointer-events:none; z-index:2; background:linear-gradient(90deg,#060708d0 0%,#06070866 26%,#06070800 46%), linear-gradient(0deg,#060708f0 0%,#06070800 24%), linear-gradient(180deg,#060708c0 0%,#06070800 16%); }
+  .heroText { position:absolute; left:clamp(16px,3vw,40px); top:clamp(100px,13vh,140px); z-index:6; max-width:min(720px,62%); pointer-events:none; }
+  .heroText .btns { pointer-events:auto; }
+  .heroText h1.title { font-size:clamp(28px,3.5vw,52px); text-shadow:0 2px 24px #000; }
+  .modes { position:absolute; right:clamp(16px,3vw,40px); top:106px; z-index:6; display:flex; gap:3px; background:#0d0f12cc; backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:999px; padding:4px; }
+  .modes button { border:0; background:transparent; color:var(--ink2); padding:6px 13px; border-radius:999px; cursor:pointer; font-size:12px; }
+  .modes button.on { background:#1f2630; color:#fff; }
+  .pip { position:absolute; left:clamp(16px,3vw,40px); bottom:122px; width:clamp(200px,24vw,400px); aspect-ratio:var(--ar); z-index:6; border-radius:14px; overflow:hidden; border:1px solid #ffffff30; box-shadow:0 18px 50px #000c; background:#000; transition:width .35s ease; }
+  .pip.big { width:clamp(240px,44vw,760px); }
+  .pip video, .pip canvas { position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:contain; }
+  .pipx { position:absolute; right:8px; top:8px; width:26px; height:26px; border-radius:7px; border:1px solid #ffffff33; background:#000a; color:#fff; cursor:pointer; font-size:13px; line-height:1; z-index:2; }
+  .hud { position:absolute; left:clamp(16px,3vw,40px); right:clamp(16px,3vw,40px); bottom:14px; z-index:6; }
+  .hud .ticker { position:static; min-height:19px; font-size:14px; }
+  @media (max-width:700px) { .heroText { max-width:92%; } .pip { width:44vw; bottom:150px; } .modes { top:auto; bottom:150px; right:12px; } .count { display:none; } .switch button small { display:none; } .switch button { padding:7px 11px; } .hud .hint { display:none; } }
+  /* ask: rolling questions */
+  .ask2 { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); gap:14px; }
+  @media (max-width:900px) { .ask2 { grid-template-columns:1fr; } }
+  .askw { aspect-ratio:auto; height:min(76vh,760px); min-height:440px; background:radial-gradient(ellipse at 50% 42%, #121820, #0b0d10 75%); }
+  .feedw { display:flex; flex-direction:column; height:min(76vh,760px); min-height:440px; background:var(--panel); border:1px solid var(--line); border-radius:20px; overflow:hidden; }
+  .feedh { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 14px; border-bottom:1px solid var(--line); }
+  .qdots { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
+  .qdots button { width:22px; height:22px; border-radius:50%; border:1px solid var(--line); background:var(--bg2); color:var(--ink3); font-size:10px; cursor:pointer; padding:0; }
+  .qdots button.on { background:#3987e5; border-color:#3987e5; color:#fff; }
+  .feed { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:12px; scrollbar-width:thin; }
+  .thread { display:flex; flex-direction:column; gap:9px; padding-bottom:14px; border-bottom:1px dashed var(--line); flex-shrink:0; }
+  .thread:last-child { border-bottom:0; }
+  .msg { flex-shrink:0; opacity:0; transform:translateY(10px); transition:opacity .45s, transform .45s; font-size:13px; color:#cfd3da; }
+  .msg.in { opacity:1; transform:none; }
+  .msg.q { align-self:flex-end; max-width:94%; background:#13223a; border:1px solid #2b5d9c; border-radius:16px 16px 4px 16px; padding:10px 12px; }
+  .msg.q .who { font-size:11px; color:#9cc3f5; margin-bottom:3px; } .msg.q .qt { font-size:16px; line-height:1.25; font-weight:650; color:#fff; }
+  .msg.q .opts { margin-top:8px; gap:4px; } .msg.q .opt { font-size:12px; padding:5px 8px; background:#0d1420; }
+  .msg .row { display:flex; gap:9px; align-items:flex-start; } .msg .row b { color:#fff; font-weight:600; }
+  .msg.t .tt { color:#d9efe6; line-height:1.4; }
+  .msg .moments { padding-left:33px; flex-wrap:wrap; overflow:visible; } .msg .moment { animation:pop .45s ease both; width:96px; font-size:10px; } .msg .moment img { width:96px; height:58px; } .msg .moment div { padding:3px 6px; }
+  .ic { flex:0 0 auto; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:#14243a; color:#9cc3f5; }
+  .ic svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .ic.k-think { background:#0f2a22; color:#87e0c0; } .ic.k-answer, .ic.k-pin { background:#3a2c08; color:#f5c451; }
+  .cons { margin-left:auto; font-size:11px; color:var(--ink3); white-space:nowrap; padding-left:8px; }
+  .msg .verdict { margin-top:6px; padding-left:33px; }
+  .cap3d { position:absolute; left:14px; right:14px; bottom:14px; z-index:4; display:flex; gap:10px; align-items:flex-start; font-size:14px; line-height:1.4; color:#fff;
+           background:#0b0d10de; border:1px solid #ffffff1c; border-radius:14px; padding:10px 12px; backdrop-filter:blur(6px); opacity:0; transition:opacity .35s; pointer-events:none; max-height:42%; overflow:hidden; }
+  .cap3d.on { opacity:1; } .cap3d b { color:#cfe3fb; }
   .paused-hint { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#000a; border:1px solid #ffffff33; border-radius:999px;
                  padding:6px 12px; font-size:12px; color:#fff; pointer-events:none; opacity:0; transition:opacity .3s; }
   .transport { display:flex; align-items:center; gap:12px; margin-top:12px; }
@@ -69,6 +112,7 @@
   .pill.on { color:#fff; border-color:#5a6370; background:#1a1f26; }
   .pipe { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,1fr); gap:14px; }
   @media (max-width:880px) { .pipe { grid-template-columns:1fr; } }
+  .pipe > div { min-width:0; }
   .viewer { cursor:none; } .viewer.free { cursor:default; }
   .side { display:flex; flex-direction:column; gap:12px; min-width:0; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px; position:relative; }
@@ -126,22 +170,27 @@
 <body>
 <nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
 
-<section id="watch" style="padding-top:78px;padding-bottom:0">
-  <div class="eyebrow">LEDGER</div>
-  <h1 class="title">Persistent 3D Object Memory<br><span class="grad">from Egocentric Videos</span></h1>
-  <div class="btns"><a class="btn" href="#">Paper</a><a class="btn" href="#">Code</a><a class="btn" href="#pipeline">How it works ↓</a></div>
-</section>
 <div class="switch"><div id="switch"></div></div>
-<section class="wide" style="padding-top:6px">
-  <div class="stage">
-    <div class="pane" id="vpane"><video id="vid" muted playsinline loop preload="metadata"></video>
-      <div class="lbl">what you saw</div><div class="ticker" id="ticker"></div><div class="paused-hint" id="phint">hover anything</div></div>
-    <div class="pane" id="mem3d"><div class="lbl">what LEDGER remembers</div><div class="count" id="count"></div></div>
+<section id="watch" class="heroW">
+  <div class="world" id="world">
+    <div class="scrim"></div>
+    <div class="heroText">
+      <div class="eyebrow">LEDGER</div>
+      <h1 class="title">Persistent 3D Object Memory<br><span class="grad">from Egocentric Videos</span></h1>
+      <div class="btns"><a class="btn" href="#">Paper</a><a class="btn" href="#">Code</a><a class="btn" href="#pipeline">How it works ↓</a></div>
+    </div>
+    <div class="modes" id="modes"><button data-m="orbit">Orbit</button><button data-m="follow">Follow</button><button data-m="top">Top</button></div>
+    <div class="count" id="count"></div>
+    <div class="pip" id="vpane"><video id="vid" muted playsinline loop preload="metadata"></video>
+      <div class="lbl">what you saw</div><div class="paused-hint" id="phint">hover anything</div><button class="pipx" id="pipx" aria-label="enlarge the video">⤢</button></div>
+    <div class="hud">
+      <div class="ticker" id="ticker"></div>
+      <div class="transport"><button class="play" id="play" aria-label="play / pause">❚❚</button>
+        <div class="bar" id="bar"><div class="track"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+        <div class="time" id="time">0:00</div></div>
+      <div class="hint"><span>drag to look around</span><span>hover a dot</span><span>pause, then hover the video</span><span><span style="color:#e8703a">▮</span> an object moved</span><span id="speedNote"></span></div>
+    </div>
   </div>
-  <div class="transport"><button class="play" id="play" aria-label="play / pause">❚❚</button>
-    <div class="bar" id="bar"><div class="track"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
-    <div class="time" id="time">0:00</div></div>
-  <div class="hint"><span>pause, then hover the video</span><span>drag to orbit</span><span><span style="color:#e8703a">▮</span> an object moved</span><span id="speedNote"></span></div>
 </section>
 
 <section id="pipeline">
@@ -171,19 +220,15 @@
   <div class="merges" id="merges"></div>
 </section>
 
-<section id="ask">
+<section id="ask" class="wide">
   <div class="eyebrow">Ask it anything</div>
   <h2>Watch it look things up.</h2>
-  <div class="ask">
-    <div class="card" style="padding:0;overflow:hidden">
-      <div class="pane sq" id="askview" style="border:0;border-radius:0"><div class="lbl" id="askLbl" style="text-transform:none;letter-spacing:0;font-size:13px;right:14px"></div></div>
-    </div>
-    <div class="card">
-      <div class="mini" id="askWho"></div>
-      <div class="qbubble" id="askQ" style="margin-top:6px"></div>
-      <div class="opts" id="askOpts"></div>
-      <div class="tl" id="askSteps"></div>
-      <button class="btn" id="replay" style="margin-top:8px;cursor:pointer">↺ replay</button>
+  <div class="csub">questions keep coming · every search, moment and object the agent touches, live in 3D</div>
+  <div class="ask2">
+    <div class="pane askw" id="askview"><div class="cap3d" id="cap3d"></div></div>
+    <div class="feedw">
+      <div class="feedh"><span class="mini" id="askWho"></span><div class="qdots" id="qdots"></div></div>
+      <div class="feed" id="feed"></div>
     </div>
   </div>
 </section>
