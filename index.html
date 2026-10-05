@@ -130,7 +130,22 @@
                      border-left:2px dashed #e8703a; border-right:0; margin-left:12px; }
   .trackleg { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink2); } .trackleg i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
   @media (max-width:880px) { .trackgrid { grid-template-columns:70px repeat(3,minmax(0,1fr)) 14px repeat(3,minmax(0,1fr)); gap:3px; } }
-  .lifew { position:relative; } #lifelines { width:100%; height:440px; display:block; background:var(--panel); border:1px solid var(--line); border-radius:20px; }
+  .archw { margin-top:6px; } .arch { aspect-ratio:auto; height:min(72vh,700px); min-height:420px; background:radial-gradient(ellipse at 50% 40%, #121820, #0b0d10 75%); }
+  .isl { position:absolute; inset:0; pointer-events:none; z-index:4; }
+  .isl div { position:absolute; left:0; top:0; transform:translate(-50%,-100%); text-align:center; white-space:nowrap; font:600 13px Inter,-apple-system,sans-serif; color:#cfd3da;
+             background:#0b0d10cc; border:1px solid #2a3038; border-radius:10px; padding:5px 10px; transition:border-color .3s, color .3s, opacity .3s; }
+  .isl div small { display:block; font-weight:400; font-size:11px; color:var(--ink3); } .isl div.now { border-color:#3987e5; color:#fff; box-shadow:0 0 0 3px #3987e533; } .isl div.future { opacity:.35; }
+  .qcall { position:absolute; left:14px; bottom:14px; z-index:5; max-width:min(520px,70%); background:#0b0d10e8; border:1px solid #ffffff22; border-radius:14px; padding:12px 14px;
+           backdrop-filter:blur(6px); opacity:0; transform:translateY(8px); transition:opacity .4s, transform .4s; pointer-events:none; font-size:13px; color:#cfd3da; }
+  .qcall.on { opacity:1; transform:none; } .qcall .qw { font-size:11px; color:#f5c451; letter-spacing:.04em; } .qcall .qq { font-size:17px; color:#fff; font-weight:650; margin:3px 0 8px; }
+  .qcall .qa { display:flex; gap:8px; align-items:center; color:#d9efe6; } .qcall .qr { margin-top:6px; font-size:12px; color:var(--ink2); }
+  .archtl { position:relative; height:74px; margin-top:10px; cursor:pointer; user-select:none; touch-action:none; }
+  .atrack { position:absolute; left:0; right:0; top:8px; height:50px; display:flex; gap:10px; }
+  .atrack .sg { position:relative; height:100%; border-radius:10px; overflow:hidden; border:1px solid var(--line); background-size:auto 100%; background-repeat:repeat-x; display:flex; }
+  .atrack .sg img { height:100%; flex:1 1 0; min-width:0; object-fit:cover; opacity:.55; }
+  .atrack .sg span { position:absolute; left:8px; bottom:5px; font:600 11px Inter,sans-serif; color:#fff; text-shadow:0 1px 3px #000; }
+  .atrack .pin { position:absolute; top:-8px; width:14px; height:14px; margin-left:-7px; transform:rotate(45deg); background:#f5c451; border:2px solid #0b0d10; z-index:3; cursor:pointer; }
+  .aphead { position:absolute; top:0; bottom:8px; width:2px; background:#fff; box-shadow:0 0 8px #fff8; pointer-events:none; z-index:4; }
   .xcards { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px; margin-top:12px; }
   .xcard { text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:12px 14px; color:var(--ink2); cursor:pointer; font:inherit; }
   .xcard:hover { border-color:#f5c45188; } .xcard .xq { color:#fff; font-size:16px; font-weight:650; margin:4px 0 8px; }
@@ -238,12 +253,14 @@
 
 <section id="stitch-s" class="wide">
   <div class="eyebrow">Stitched streams</div>
-  <h2>Two videos.<br><span class="grad">One memory.</span></h2>
-  <p class="sdesc">Experience accumulates across places. Here a mall clip and a twenty-minute shopping trip by another wearer are stitched into one 21-minute stream, and LEDGER builds a single memory over it. Unrelated scenes are not registered into a shared frame, so objects from the two recordings stay separate, and the memory still answers about the mall twenty minutes later. Across 100 stitched streams, returning to the same scene costs the memory almost nothing, while a change of scene costs it 5.7 points, because construction and retrieval both assume one scene; building the memory per scene recovers part of that loss.</p>
+  <h2>Multiple scenes.<br><span class="grad">Single memory.</span></h2>
+  <p class="sdesc">Experience accumulates across places. Here recordings from three different kitchens are stitched into one 21-minute stream, and LEDGER builds a single memory over all of it. Unrelated scenes are not registered into a shared frame, so each kitchen keeps its own island of objects, and every earlier island stays in memory while the wearer moves on. The four questions are those of the paper's Figure 3, answered from this one memory by LEDGER's reader, without frames. Across 100 stitched streams, returning to the same scene costs the memory almost nothing, while a change of scene costs it 5.7 points, because construction and retrieval both assume one scene; building the memory per scene recovers part of that loss.</p>
   <div class="stitchc" id="stitchCounts"></div>
-  <div class="lifew"><canvas id="lifelines"></canvas><div class="tip" id="lifetip"></div></div>
-  <div class="hint"><span>one line per memory object: <b style="color:#cfd3da">bright</b> while seen, <b style="color:#666d78">faint</b> while remembered</span><span><span style="color:#f5c451">⌒</span> a question asked at the end about the first video</span><span>hover a line</span></div>
-  <div class="xcards" id="xcards"></div>
+  <div class="archw">
+    <div class="pane arch" id="arch"><div class="isl" id="islands"></div><div class="qcall" id="qcall"></div><div class="count" id="archCount" style="top:14px"></div></div>
+    <div class="archtl" id="archtl"><div class="atrack" id="atrack"></div><div class="aphead" id="aphead"></div></div>
+    <div class="hint"><span>drag the timeline</span><span>drag to orbit</span><span><span style="color:#f5c451">◆</span> a question, answered from the memory</span><span>islands are not to scale with each other</span></div>
+  </div>
   <div class="trackw">
     <h3>Tracking across a cut.</h3>
     <p class="sdesc">Point trackers follow pixels through one continuous video. Across a cut they keep an object only when the new view happens to resemble the old one: here AllTracker, seeded before the cut, stays on the projector, shelf and flowers on day 6 but loses the microwave. After a change of place it drops every object (all 9 we tested), so nothing seen before the cut can be asked about later. LEDGER keeps every object in memory across the cut, and here finds all four again as the same memory objects on day 6.</p>
@@ -304,6 +321,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261004185805"></script>
+<script type="module" src="app.js?v=20261004204134"></script>
 </body>
 </html>

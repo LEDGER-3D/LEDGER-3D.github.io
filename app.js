@@ -6,7 +6,7 @@ const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
 const resultsP = fetch("assets/results.json").then((r) => r.json()).catch(() => null);   // charts data, requested first
 const trackP = fetch("assets/stitch/track/track.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"], ["stitch", "Stitched", "2 videos"]];
+const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"], ["stitch", "Stitched", "3 scenes"]];
 const UP = { hdepic: "z", vq3d: "z", ucs: "-y", stitch: "-y" };    // which world axis points up
 const HFOV = { hdepic: 100, ucs: 68, vq3d: 92, stitch: 68 };       // drawn field of view of each wearer camera (deg)
 const PT = { hdepic: 0.022, ucs: 0.026, vq3d: 0.034, stitch: 0.05 };   // fallback point size (memory units)
@@ -48,7 +48,7 @@ async function getDS(name) {
   let pts = null; try { const r = await fetch(A + "points.bin"); if (r.ok) pts = await r.arrayBuffer(); } catch (e) { /* none */ }
   const objById = new Map(D.objects.map((o) => [o.id, o])), detsByOb = new Map();
   D.frames.forEach((f, fi) => f.dets.forEach((d) => { if (d.ob === undefined) return; if (!detsByOb.has(d.ob)) detsByOb.set(d.ob, []); detsByOb.get(d.ob).push({ ...d, t: f.t, fi }); }));
-  const moves = D.objects.filter((o) => o.segs.length >= 2 && o.segs.every((s) => s.w));
+  const moves = D.parts ? [] : D.objects.filter((o) => o.segs.length >= 2 && o.segs.every((s) => s.w));   // no moves across unregistered scenes
   const X = { name, A, D, task, sprite, objById, detsByOb, moves, speed: D.speed || 1, up: UP[name] };
   X.W2T = X.up === "z" ? (p) => new THREE.Vector3(p[0], p[2], -p[1]) : (p) => new THREE.Vector3(p[0], -p[1], -p[2]);
   if (pts) { const n = pts.byteLength / 15, xyz = new Float32Array(pts, 0, n * 3); X.sparse = toThree(X, (i) => xyz[i], new Uint8Array(pts, n * 12, n * 3), n); }
@@ -226,7 +226,7 @@ listeners.push((X) => {
   rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, fog: false }));
   rays.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); rays.geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); hero.g.add(rays);
   bar.querySelectorAll(".tick, .cut").forEach((e) => e.remove());
-  for (const p of (X.D.parts || []).slice(1)) { const d = document.createElement("div"); d.className = "cut"; d.style.left = `${(100 * p.t0) / X.D.duration}%`; d.dataset.l = "cut · next video"; bar.appendChild(d); }
+  for (const p of (X.D.parts || []).slice(1)) { const d = document.createElement("div"); d.className = "cut"; d.style.left = `${(100 * p.t0) / X.D.duration}%`; d.dataset.l = "cut · next scene"; bar.appendChild(d); }
   for (const o of X.moves) { const d = document.createElement("div"); d.className = "tick"; d.style.left = `${(100 * o.segs[1].t[0]) / X.D.duration}%`; bar.appendChild(d); }
   $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; setMode(Q.get("mode") || mode); vid.play().catch(() => {});
 });
@@ -586,7 +586,7 @@ async function playTask(X, T, g) {
   const th = document.createElement("div"); th.className = "thread"; feed.appendChild(th); while (feed.children.length > 4) feed.firstChild.remove();
   const add = (cls, html) => { const d = document.createElement("div"); d.className = `msg ${cls}`; d.innerHTML = html; th.appendChild(d);
     setTimeout(() => d.classList.add("in"), 30); feed.scrollTop = feed.scrollHeight; return d; };
-  const when = T.delayed_from !== undefined ? `asked at ${fmt(T.t)} · about ${fmt(T.delayed_from)}, one video earlier` : T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video";
+  const when = T.delayed_from !== undefined ? `asked at ${fmt(T.t)} · about ${fmt(T.delayed_from)}, in an earlier scene` : T.t !== undefined ? `asked at ${fmt(T.t)}` : "asked after the video";
   const qEl = add("q", `<div class="who">${when}</div><div class="qt">${esc(T.question)}</div>` + (T.box ? `<canvas class="qimg"></canvas>` : "") +
     (T.options ? `<div class="opts">${T.options.map((o, i) => `<div class="opt">${"ABCDE"[i]}. ${esc(o)}</div>`).join("")}</div>` : ""));
   if (T.box) qImage(X, T, qEl.querySelector(".qimg"));
@@ -595,7 +595,7 @@ async function playTask(X, T, g) {
     if (T.delayed_from !== undefined) {                              // re-asked later: "now" and the earlier moment it is about, joined
       const then = X.W2T(camLerp(X, T.delayed_from).slice(1, 4)), dot = pathDot(A, then, 0x87e0c0, 1.4);
       popIn(A, dot, 600); link(A, b.C, then, 0xf5c451, 900); A.fit([b.C, then], 1.3);
-      capSet("pin", `asked here at ${fmt(T.t)}, about this moment at ${fmt(T.delayed_from)}: ${Math.round((T.t - T.delayed_from) / 60)} minutes and one other video earlier`);
+      capSet("pin", `asked here at ${fmt(T.t)}, about this moment at ${fmt(T.delayed_from)}: ${Math.round((T.t - T.delayed_from) / 60)} minutes earlier, in another scene`);
     } else { A.fit([b.C], 2.4); capSet("pin", `asked here, at ${fmt(T.t)}${T.box ? " · about the highlighted item" : ""}`); }
   } else { A.overview(); capSet("pin", "asked after the whole video"); }
   await sleep(2600, g);
@@ -615,51 +615,59 @@ listeners.push((X) => {
   jump(X, +(Q.get("q") || 0) % Math.max(1, L.length));
 });
 
-// ================================================================== STITCHED: one memory over two videos (lifelines across the cut)
-const life = $("lifelines"), lg = life.getContext("2d"), ltip = $("lifetip"); let SX = null, lifeRows = [], lifeK = 0, lifeGeo = null, lifeImgs = [];
-new IntersectionObserver((es) => es.forEach(async (e) => { if (!e.isIntersecting || SX) return; SX = await getDS("stitch"); stitchSetup(SX); }), { rootMargin: "600px" }).observe(life);
-function stitchSetup(S) {
-  const D = S.D, parts = D.parts, n0 = D.objects.filter((o) => o.t[0] < parts[1].t0).length;
-  lifeRows = [...D.objects].sort((a, b) => a.t[0] - b.t[0]); lifeK = 0;
-  lifeImgs = []; parts.forEach((p, k) => { const idx = D.frames.map((f, i) => [f.t, i]).filter(([t]) => t >= p.t0 && t < p.t1), m = k ? 16 : 4;   // thumbnails spread over each video
-    for (let j = 0; j < m; j++) { const [t, i] = idx[Math.floor(((j + 0.5) * idx.length) / m)] || []; if (i !== undefined) loadImg(frameSrc(S, i)).then((im) => im && lifeImgs.push({ im, t, k, j, m })); } });
-  $("stitchCounts").innerHTML = parts.map((p, i) => `<span><b>${esc(p.label)}</b> · ${p.t1 - p.t0 < 120 ? Math.round(p.t1 - p.t0) + " s" : Math.round((p.t1 - p.t0) / 60) + " min"} · ${i ? D.objects.length - n0 : n0} objects</span>`).join("") + `<span class="one">→ one memory, ${D.objects.length} objects</span>`;
-  const L = (S.task?.tasks || []).map((T, i) => ({ T, i })).filter(({ T }) => T.delayed_from !== undefined);
-  $("xcards").innerHTML = L.map(({ T, i }) => `<button class="xcard" data-i="${i}"><div class="mini">asked at ${fmt(T.t)} · about ${fmt(T.delayed_from)}</div><div class="xq">${esc(T.question)}</div>
-    <div class="xa"><span class="ic k-answer">${ICON.answer}</span>${esc(T.options[T.answer_idx])} <span class="cons">right in ${T.consistency} runs</span></div></button>`).join("");
-  $("xcards").querySelectorAll(".xcard").forEach((b) => (b.onclick = async () => { await select("stitch"); $("ask").scrollIntoView({ behavior: "smooth" }); jump(X, +b.dataset.i); }));
-  const sizeL = () => { const dpr = Math.min(devicePixelRatio, 2); life.width = life.clientWidth * dpr; life.height = life.clientHeight * dpr; lg.setTransform(dpr, 0, 0, dpr, 0, 0); };
-  new ResizeObserver(sizeL).observe(life); sizeL();
+// ================================================================== STITCHED: several scenes, one memory (an archipelago of scene islands)
+const archEl = $("arch"), islEl = $("islands"), qcall = $("qcall"), atrack = $("atrack"), aphead = $("aphead"); let arch = null, SX = null, SY = null, aT = 0, aHold = 0, aUser = 0, aQ = -1, islLab = [];
+new IntersectionObserver((es) => es.forEach(async (e) => { if (!e.isIntersecting || arch) return; arch = new World(archEl); SX = await getDS("stitch");
+  SY = await fetch(SX.A + "story.json").then((r) => (r.ok ? r.json() : null)).catch(() => null); archSetup(); }), { rootMargin: "500px" }).observe(archEl);
+function archSetup() {
+  const D = SX.D, P = SY.parts, mm = fmt; arch.set(SX); arch.noArrows = true; arch.avoid = [qcall];
+  const R = arch.rad, c = arch.ctr; arch.fly(c, c.clone().add(new THREE.Vector3(0, R * 0.86, R * 0.84)), true);
+  for (const p of arch.paths) { p.now.material.transparent = true; p.now.material.opacity = 0.45; }                // quieter paths here
+  $("stitchCounts").innerHTML = P.map((p, i) => `<span><b>Scene ${i + 1} · ${esc(p.label)}</b> · ${mm(p.t1 - p.t0)} · ${p.objects} objects</span>`).join("") + `<span class="one">→ one memory, ${D.objects.length} objects</span>`;
+  islEl.innerHTML = ""; islLab = P.map((p, i) => { const d = document.createElement("div"); d.innerHTML = `Scene ${i + 1} · ${esc(p.label)}<small>${mm(p.t0)}–${mm(p.t1)} · ${esc(p.src)}</small>`; islEl.appendChild(d);
+    const pts = D.camera.filter((q) => q[0] >= p.t0 && q[0] < p.t1).map((q) => SX.W2T(q.slice(1, 4))), bb = new THREE.Box3().setFromPoints(pts);
+    const top = bb.getCenter(new THREE.Vector3()); top.y = bb.max.y + R * 0.12; return { el: d, at: top, p }; });
+  atrack.innerHTML = ""; const tot = D.duration;
+  P.forEach((p, i) => { const sg = document.createElement("div"); sg.className = "sg"; sg.style.flex = `${p.t1 - p.t0} 1 0`;
+    const fi = D.frames.map((f, k) => [f.t, k]).filter(([t]) => t >= p.t0 && t < p.t1), n = Math.max(1, Math.min(10, Math.round(((p.t1 - p.t0) / tot) * 22)));
+    for (let j = 0; j < n; j++) { const f = fi[Math.floor(((j + 0.5) * fi.length) / n)]; if (f) sg.insertAdjacentHTML("beforeend", `<img src="${frameSrc(SX, f[1])}" alt="">`); }
+    sg.insertAdjacentHTML("beforeend", `<span>Scene ${i + 1}</span>`); atrack.appendChild(sg); });
+  SY.questions.forEach((q, k) => { const pin = document.createElement("div"); pin.className = "pin"; pin.title = q.question; pin.dataset.k = k; atrack.appendChild(pin); });
+  placePins(); new ResizeObserver(placePins).observe(atrack); aT = 0; aQ = -1;
+  if (Q.has("at")) { aT = +Q.get("at"); aUser = performance.now() + 1e9; }       // (tests) pin the timeline
+}
+function tlX(t) {                                                   // stream time -> x on the timeline (segments are separated by 10 px gaps)
+  const P = SY.parts, segs = [...atrack.querySelectorAll(".sg")]; const i = P.findIndex((p) => t < p.t1) < 0 ? P.length - 1 : P.findIndex((p) => t < p.t1);
+  const el = segs[i]; return el.offsetLeft + ((Math.min(Math.max(t, P[i].t0), P[i].t1) - P[i].t0) / (P[i].t1 - P[i].t0)) * el.offsetWidth;
+}
+function tlT(x) { const P = SY.parts, segs = [...atrack.querySelectorAll(".sg")];
+  for (let i = 0; i < P.length; i++) { const el = segs[i]; if (x <= el.offsetLeft + el.offsetWidth || i === P.length - 1) return P[i].t0 + Math.max(0, Math.min(1, (x - el.offsetLeft) / el.offsetWidth)) * (P[i].t1 - P[i].t0); } }
+function placePins() { if (!SY) return; atrack.querySelectorAll(".pin").forEach((el) => (el.style.left = `${tlX(SY.questions[+el.dataset.k].t)}px`)); }
+{ let drag = false; const set = (e) => { const r = atrack.getBoundingClientRect(); aT = tlT(e.clientX - r.left); aUser = performance.now(); aHold = 0; };
+  $("archtl").addEventListener("pointerdown", (e) => { if (!SY) return; drag = true; $("archtl").setPointerCapture(e.pointerId); set(e); });
+  $("archtl").addEventListener("pointermove", (e) => drag && set(e)); $("archtl").addEventListener("pointerup", () => (drag = false)); }
+function showQ(k) {
+  arch.clearExtra(); const q = SY.questions[k], D = SX.D;
+  if (!q) { qcall.classList.remove("on"); arch.highlight(null); return; }
+  const cam = SX.W2T(camLerp(SX, q.t).slice(1, 4)), ids = new Set(q.retrieved.map((r) => r.ob).filter((x) => x !== null)), pd = pathDot(arch, cam, 0xf5c451, 1.6); popIn(arch, pd);
+  [...ids].forEach((id, i) => { const p = arch.objPos(id, q.t); if (p) link(arch, cam, p, col3(id), 250 + i * 120); });
+  arch.highlight(ids, ids);
+  qcall.innerHTML = `<div class="qw">SCENE ${q.scene + 1} · ${fmt(q.t)}${q.about !== undefined ? ` · about scene ${q.about_scene + 1}, at ${fmt(q.about)}` : ""} · asked of the single memory</div><div class="qq">${esc(q.question)}</div>
+    <div class="qa"><span class="ic k-answer">${ICON.answer}</span><span>${esc(q.answer)}</span><span class="cons">${q.correct ? "correct" : "wrong"}</span></div>
+    <div class="qr">retrieved: ${q.retrieved.map((r) => esc(r.name)).join(", ")} · ${esc(q.reader || "")}</div>`; qcall.classList.add("on");
 }
 $("goStitch").onclick = async () => { await select("stitch"); $("watch").scrollIntoView({ behavior: "smooth" }); };
-life.addEventListener("pointermove", (e) => {
-  if (!lifeGeo) return; const r = life.getBoundingClientRect(), y = e.clientY - r.top, x = e.clientX - r.left, g = lifeGeo, i = Math.floor((y - g.top) / g.rh);
-  const o = lifeRows[i]; if (!o || y < g.top || x < g.x0 - 10) { ltip.style.opacity = 0; return; }
-  ltip.innerHTML = `<b style="color:${col(o.id, 1, 70)}">${esc(o.name)}</b> · seen ${o.n_obs}× · ${fmt(o.t[0])}–${fmt(o.t[1])}`; ltip.style.opacity = 1;
-  ltip.style.left = `${Math.min(x + 14, r.width - 220)}px`; ltip.style.top = `${y - 34}px`; g.hover = i;
-});
-life.addEventListener("pointerleave", () => { ltip.style.opacity = 0; if (lifeGeo) lifeGeo.hover = -1; });
-function frameLife(now) {
-  if (!SX || !life.clientWidth) return; const D = SX.D, P = D.parts, W = life.clientWidth, H = life.clientHeight, x0 = 16, x1 = W - 16, gap = 30, thumbH = 54, top = thumbH + 40;
-  const wA = (x1 - x0 - gap) * 0.26, TX = (t) => (t < P[1].t0 ? x0 + (t / P[1].t0) * wA : x0 + wA + gap + ((t - P[1].t0) / (P[1].t1 - P[1].t0)) * (x1 - x0 - wA - gap));
-  const rh = Math.max(1.5, (H - top - 30) / lifeRows.length); lifeGeo = { ...(lifeGeo || {}), top, rh, x0 };
-  const T = ((now / 1000) % 16) / 13, tc = Math.min(1, T) * D.duration;          // a sweep across the stream, every 16 s
-  lg.clearRect(0, 0, W, H);
-  for (const { im, t, k, j, m } of lifeImgs) { const a = k ? x0 + wA + gap : x0, w = (k ? x1 - x0 - wA - gap : wA) / m, h = Math.min(thumbH, (w * im.height) / im.width);
-    lg.globalAlpha = t <= tc ? 0.95 : 0.25; const sw = Math.min(im.width, (im.height * w) / h); lg.drawImage(im, (im.width - sw) / 2, 0, sw, im.height, a + j * w + 1, 4, w - 2, thumbH); }
-  lg.globalAlpha = 1; lg.fillStyle = "#0d0f12"; lg.fillRect(x0 + wA, 0, gap, H);
-  lg.strokeStyle = "#e8703a"; lg.setLineDash([4, 4]); lg.beginPath(); lg.moveTo(x0 + wA + gap / 2, 0); lg.lineTo(x0 + wA + gap / 2, H); lg.stroke(); lg.setLineDash([]);
-  lg.font = "600 12px Inter, -apple-system, sans-serif"; lg.fillStyle = "#cfd3da"; lg.textAlign = "left";
-  lg.fillText(`video 1 · ${P[0].label}`, x0, thumbH + 24); lg.fillText(`video 2 · ${P[1].label}`, x0 + wA + gap, thumbH + 24);
-  lg.fillStyle = "#e8703a"; lg.textAlign = "center"; lg.fillText("cut", x0 + wA + gap / 2, H - 8); lg.textAlign = "left";
-  lifeRows.forEach((o, i) => { if (o.t[0] > tc) return; const y = top + i * rh + rh / 2, a = TX(o.t[0]), b = Math.max(a + 2, TX(Math.min(o.t[1], tc)));
-    if (tc > o.t[1]) { lg.strokeStyle = col(o.id, 0.16, 60); lg.lineWidth = Math.max(1, rh * 0.5); lg.beginPath(); lg.moveTo(b, y); lg.lineTo(TX(tc), y); lg.stroke(); }   // still in memory
-    lg.strokeStyle = col(o.id, i === lifeGeo.hover ? 1 : 0.85, i === lifeGeo.hover ? 75 : 60); lg.lineWidth = Math.max(1.2, rh * (i === lifeGeo.hover ? 1 : 0.7));
-    lg.beginPath(); lg.moveTo(a, y); lg.lineTo(b, y); lg.stroke(); });
-  lg.strokeStyle = "#ffffffaa"; lg.lineWidth = 1; lg.beginPath(); lg.moveTo(TX(tc), thumbH + 6); lg.lineTo(TX(tc), H - 20); lg.stroke();
-  if (T > 1) for (const Tk of (SX.task?.tasks || []).filter((q) => q.delayed_from !== undefined)) {   // recall arcs: asked at the end, about the first video
-    const a = TX(Tk.t), b = TX(Tk.delayed_from), yy = top - 6; lg.strokeStyle = "#f5c451"; lg.lineWidth = 1.6; lg.beginPath(); lg.moveTo(a, yy); lg.bezierCurveTo(a, yy - 30, b, yy - 30, b, yy); lg.stroke();
-    lg.fillStyle = "#f5c451"; lg.beginPath(); lg.arc(b, yy, 3, 0, 7); lg.fill(); }
+let aLast = performance.now();
+function frameArch(now) {
+  if (!arch || !SY || !arch.visible) { aLast = now; return; } const dt = Math.min(0.1, (now - aLast) / 1000); aLast = now; const D = SX.D;
+  if (now - aUser > 6000) { if (aHold > 0) aHold -= dt; else { aT += dt * (D.duration / 34); if (aT > D.duration + 8) { aT = 0; aQ = -1; } } }
+  const k = SY.questions.reduce((b, q, i) => (q.t <= aT + 0.01 ? i : b), -1);
+  if (k !== aQ) { aQ = k; showQ(k); if (k >= 0 && now - aUser > 6000) aHold = 4.2; }
+  const n = arch.update(Math.min(aT, D.duration)); arch.render(); aphead.style.left = `${tlX(Math.min(aT, D.duration))}px`;
+  $("archCount").textContent = `${n} objects in one memory`;
+  const w = archEl.clientWidth, h = archEl.clientHeight, v = new THREE.Vector3();
+  islLab.forEach(({ el, at, p }) => { v.copy(at).project(arch.cam); el.style.display = v.z > 1 ? "none" : ""; el.style.left = `${((v.x + 1) / 2) * w}px`; el.style.top = `${((1 - v.y) / 2) * h}px`;
+    el.classList.toggle("now", aT >= p.t0 && aT < p.t1); el.classList.toggle("future", aT < p.t0); });
 }
 
 // ================================================================== tracking across a cut (point tracker vs LEDGER) + the walkthrough video
@@ -713,9 +721,9 @@ function loop() {
     if (hero.visible) { const n = heroUpdate(X, t); hero.render(); if (n !== lastCount) { $("count").textContent = `${n} objects in memory`; lastCount = n; } }
     fill.style.width = knob.style.left = `${(100 * t) / X.D.duration}%`; $("time").textContent = `${fmt(t)} / ${fmt(X.D.duration)}`;
     const ev = eventAt(X, t); if (ev !== lastEv) { const pt = (X.D.parts || []).findIndex((p) => t >= p.t0 && t < p.t1 + 0.01);
-      $("ticker").innerHTML = (pt >= 0 ? `<span class="partl">video ${pt + 1} of ${X.D.parts.length} · ${esc(X.D.parts[pt].label)}</span> ` : "") + (ev ? esc(ev.text) : ""); lastEv = ev; }
+      $("ticker").innerHTML = (pt >= 0 ? `<span class="partl">scene ${pt + 1} of ${X.D.parts.length} · ${esc(X.D.parts[pt].label)}</span> ` : "") + (ev ? esc(ev.text) : ""); lastEv = ev; }
     if (ask3d.visible) { ask3d.update(askT); ask3d.render(); }
-    frameC(); frameLife(performance.now());
+    frameC(); frameArch(performance.now());
   }
   requestAnimationFrame(loop);
 }

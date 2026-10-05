@@ -1,0 +1,162 @@
+{
+ "stream": "bigstitch__mix38",
+ "parts": [
+  {
+   "t0": 0.0,
+   "t1": 184.1,
+   "label": "Kitchen 1",
+   "src": "EPIC-Kitchens P11",
+   "objects": 110
+  },
+  {
+   "t0": 184.1,
+   "t1": 759.4,
+   "label": "Kitchen 2",
+   "src": "EPIC-Kitchens P30",
+   "objects": 155
+  },
+  {
+   "t0": 759.4,
+   "t1": 1250.6,
+   "label": "Kitchen 3",
+   "src": "EPIC-Kitchens P04",
+   "objects": 426
+  }
+ ],
+ "questions": [
+  {
+   "qid": "P11_101_6@big:p0of3",
+   "t": 92.0,
+   "scene": 0,
+   "question": "Can I wash directly up to my hands?",
+   "answer": "You can't.",
+   "correct": true,
+   "retrieved": [
+    {
+     "name": "remote control",
+     "ob": 455
+    },
+    {
+     "name": "paper towel roll",
+     "ob": 164
+    },
+    {
+     "name": "wall socket",
+     "ob": 377
+    },
+    {
+     "name": "keyboard",
+     "ob": 445
+    }
+   ],
+   "why": "The memory shows the object in your hands over a pot, with no indication that it is under running water or at a sink at the question time.",
+   "reader": "LEDGER's reader, one call"
+  },
+  {
+   "qid": "P11_101_12@big:p0of3",
+   "t": 101.0,
+   "scene": 0,
+   "question": "What did I take out of the cabinet?",
+   "answer": "You took out a heating rod.",
+   "correct": true,
+   "retrieved": [
+    {
+     "name": "coffee maker",
+     "ob": 1
+    },
+    {
+     "name": "paper towel roll",
+     "ob": 164
+    },
+    {
+     "name": "paper towel holder",
+     "ob": 165
+    },
+    {
+     "name": "electrical outlet",
+     "ob": 378
+    }
+   ],
+   "why": "The memory does not explicitly record any cabinet-opening event or the moment an item was removed from a cabinet.",
+   "reader": "LEDGER's reader, one call"
+  },
+  {
+   "qid": "P30_108_1_T2@big:p1of3",
+   "t": 256.1,
+   "scene": 1,
+   "question": "How many bowls did I put into the wall cabinet just now?",
+   "answer": "You have now put a total of four bowls into the cupboard, and the bowls are in front of you.",
+   "correct": true,
+   "retrieved": [
+    {
+     "name": "cabinet",
+     "ob": 414
+    },
+    {
+     "name": "wall socket",
+     "ob": null
+    },
+    {
+     "name": "bowls",
+     "ob": 187
+    },
+    {
+     "name": "cabinet",
+     "ob": 414
+    }
+   ],
+   "why": "The memory shows **bowls x4** seen in the kitchen so far, and the specific bowls object was observed in the cabinet at 228\u2013240s.",
+   "reader": "LEDGER's reader, one call"
+  },
+  {
+   "qid": "P04_112_2_T2@big:p2of3",
+   "t": 1230.4,
+   "scene": 2,
+   "question": "Right now, which is closer to me, the microwave or the refrigerator?",
+   "answer": "The microwave is closer, in front of you.",
+   "correct": true,
+   "retrieved": [
+    {
+     "name": "microwave",
+     "ob": 218
+    },
+    {
+     "name": "refrigerator",
+     "ob": 276
+    },
+    {
+     "name": "microwave",
+     "ob": 218
+    },
+    {
+     "name": "refrigerator",
+     "ob": 276
+    }
+   ],
+   "why": "Near the end, the microwave is recorded at 1.21 scene units away and roughly in front (-13 deg) for candidate [3], while the refrigerator is recorded at 1.36 scene units away at front-right for candidate [2] and 1.70 away at right for candidate [4].",
+   "reader": "LEDGER's reader, one call"
+  },
+  {
+   "qid": "P30_108_1@big:p1of3@delayed",
+   "t": 1249.6,
+   "scene": 2,
+   "about": 316.0,
+   "about_scene": 1,
+   "question": "How many bowls did I put into the closet in total?",
+   "answer": "You put in four bowls.",
+   "correct": true,
+   "retrieved": [
+    {
+     "name": "bowl",
+     "ob": 185
+    },
+    {
+     "name": "bowls",
+     "ob": 187
+    }
+   ],
+   "reader": "LEDGER-agent (ReMEmbR's agent on this memory), right in 3/3 runs"
+  }
+ ],
+ "reader": "LEDGER's reader (GPT-5.4, one call, memory only)"
+}
