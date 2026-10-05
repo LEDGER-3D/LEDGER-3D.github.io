@@ -4,6 +4,13 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // ================================================================== shared
 const $ = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
+// ---- analytics (GoatCounter: page views with referrer and location, plus named click events); never on a local test server
+const GC = window.GOATCOUNTER_CODE;
+if (GC && !/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname)) {
+  const sc = document.createElement("script"); sc.async = true; sc.dataset.goatcounter = `https://${GC}.goatcounter.com/count`; sc.src = "https://gc.zgo.at/count.js"; document.head.appendChild(sc);
+}
+const track = (name) => { try { window.goatcounter?.count?.({ path: `click/${name}`, title: name, event: true }); } catch (e) { /* analytics never breaks the page */ } };
+document.addEventListener("click", (e) => { const a = e.target.closest("a[href]"); if (a) track(`link ${a.getAttribute("href")}`); });
 const resultsP = fetch("assets/results.json").then((r) => r.json()).catch(() => null);   // charts data, requested first
 const trackP = fetch("assets/stitch/track/track.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
 const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"], ["vq3d", "Workshop", "Ego4D VQ3D"], ["stitch", "Stitched", "3 scenes"]];
@@ -212,7 +219,7 @@ class World {
 // ================================================================== dataset switch
 let X = null; const listeners = [];
 const sw = $("switch");
-for (const [k, a, b] of DATASETS) { const btn = document.createElement("button"); btn.innerHTML = `${a} <small>${b}</small>`; btn.dataset.k = k; btn.onclick = () => select(k); sw.appendChild(btn); }
+for (const [k, a, b] of DATASETS) { const btn = document.createElement("button"); btn.innerHTML = `${a} <small>${b}</small>`; btn.dataset.k = k; btn.onclick = () => { track(`dataset ${k}`); select(k); }; sw.appendChild(btn); }
 async function select(k) { X = await (k === (Q.get("ds") || "hdepic") ? firstDS : getDS(k)); [...sw.children].forEach((b) => b.classList.toggle("on", b.dataset.k === k)); for (const f of listeners) f(X); }
 
 // ================================================================== HERO: the wearer moving through the reconstructed scene
@@ -234,7 +241,7 @@ function setMode(m) {
   mode = m; hero.noArrows = m === "follow"; [...$("modes").children].forEach((b) => b.classList.toggle("on", b.dataset.m === m)); hero.ctl.autoRotate = m === "orbit";
   if (m === "orbit") hero.overview();
 }
-for (const b of $("modes").children) b.onclick = () => setMode(b.dataset.m);
+for (const b of $("modes").children) b.onclick = () => { track(`hero view ${b.dataset.m}`); setMode(b.dataset.m); };
 hero.ctl.addEventListener("start", () => { if (mode !== "free") setMode("free"); });        // grabbing the view frees the camera
 function heroUpdate(X, t) {
   const n = hero.update(t), b = basis(X, camLerp(X, t)); orient(live, b);
@@ -280,8 +287,8 @@ function tryPlay() { if (userPaused || !heroInView || tFix !== null) return; vid
 for (const ev of ["loadedmetadata", "canplay"]) vid.addEventListener(ev, tryPlay);
 document.addEventListener("visibilitychange", () => !document.hidden && tryPlay());
 for (const ev of ["pointerdown", "keydown", "touchstart", "wheel", "scroll"]) addEventListener(ev, function once() { if (vid.paused) tryPlay(); if (!vid.paused) removeEventListener(ev, once); }, { passive: true });
-$("play").onclick = () => { tFix = null; if (vid.paused) { userPaused = false; tryPlay(); } else { userPaused = true; vid.pause(); } };
-$("pipx").onclick = () => vpane.classList.toggle("big");
+$("play").onclick = () => { tFix = null; track(vid.paused ? "hero play" : "hero pause"); if (vid.paused) { userPaused = false; tryPlay(); } else { userPaused = true; vid.pause(); } };
+$("pipx").onclick = () => { track("hero enlarge video"); vpane.classList.toggle("big"); };
 vid.addEventListener("play", () => { $("play").textContent = "❚❚"; $("phint").style.opacity = 0; hero.highlight(null); vctx.clearRect(0, 0, vover.width, vover.height); });
 vid.addEventListener("pause", () => { $("play").textContent = "▶"; $("phint").style.opacity = 1; });
 new IntersectionObserver((es) => es.forEach((e) => { heroInView = e.isIntersecting; if (heroInView) tryPlay(); else if (!vid.paused) vid.pause(); }), { threshold: 0.05 }).observe(document.querySelector(".heroSticky"));
@@ -349,7 +356,7 @@ const pills = $("pills"), viewer = $("viewer"), vbase = $("vbase"), vlens = $("v
 const overlay = document.createElement("canvas"), octx = overlay.getContext("2d"); let frameImgs = [];
 function buildPills() { pills.innerHTML = ""; if (stage === "segment" && !X.D.masks) stage = "detect";
   for (const s of STAGES) { if (s.masks && !X.D.masks) continue; const b = document.createElement("button"); b.className = "pill"; b.dataset.k = s.k;
-    b.innerHTML = `<i style="background:${s.c}"></i>${s.n}`; b.onclick = () => { stage = s.k; draw(); }; pills.appendChild(b); } }
+    b.innerHTML = `<i style="background:${s.c}"></i>${s.n}`; b.onclick = () => { track(`pipeline ${s.k}`); stage = s.k; draw(); }; pills.appendChild(b); } }
 listeners.push((X) => {
   buildPills(); frameImgs = new Array(X.D.frames.length); rectImgs = new Array(X.D.frames.length); viewer.style.setProperty("--ar", `${X.D.res[0]}/${X.D.res[1]}`);
   fi = Q.get("frame") !== null && X.name === (Q.get("ds") || "hdepic") ? +Q.get("frame") : X.D.frames.reduce((b, f, i, F) => { const n = (g) => new Set(g.dets.filter((d) => d.ob !== undefined).map((d) => d.ob)).size; return n(f) > n(F[b]) ? i : b; }, 0);
@@ -449,7 +456,7 @@ listeners.push((X) => {
   const F = X.D.funnel; $("csub").innerHTML = `${F.detections.toLocaleString()} sightings → <b>${F.objects} objects</b> · drag the steps or hover a pile`;
   tiles = X.D.frames.flatMap((f) => f.dets.map((d) => ({ d: { ...d, t: f.t }, x: 0, y: 0, s: 0, a: 1, tx: 0, ty: 0, ts: 0, ta: 1 })));
   stepsEl.innerHTML = ""; [[F.detections, "boxes"], [F.lifted, "in 3D"], [F.clusters, "3D clusters"], [F.objects, "objects"]].forEach(([n, l], i) => {
-    const b = document.createElement("button"); b.innerHTML = `<b>${n.toLocaleString()}</b>${l}`; b.onclick = () => setStep(i); stepsEl.appendChild(b); });
+    const b = document.createElement("button"); b.innerHTML = `<b>${n.toLocaleString()}</b>${l}`; b.onclick = () => { track(`collapse step ${i}`); setStep(i); }; stepsEl.appendChild(b); });
   mg.innerHTML = "";
   for (const o of X.D.objects.filter((o) => new Set(o.tags).size > 1)) {
     const el = document.createElement("div"); el.className = "merge";
@@ -618,7 +625,7 @@ function jump(X, j) { askIdx = j; rollAsk(X, ++askGen); }
 listeners.push((X) => {
   ask3d.set(X); feed.innerHTML = ""; cap.classList.remove("on"); const L = X.task?.tasks || [];
   $("askWho").textContent = `${X.task?.answerer || ""} · ${L.length} question${L.length === 1 ? "" : "s"}`;
-  qdots.innerHTML = ""; L.forEach((T, j) => { const b = document.createElement("button"); b.textContent = j + 1; b.title = T.question; b.onclick = () => jump(X, j); qdots.appendChild(b); });
+  qdots.innerHTML = ""; L.forEach((T, j) => { const b = document.createElement("button"); b.textContent = j + 1; b.title = T.question; b.onclick = () => { track(`ask question ${X.name} ${j + 1}`); jump(X, j); }; qdots.appendChild(b); });
   jump(X, +(Q.get("q") || 0) % Math.max(1, L.length));
 });
 
@@ -651,7 +658,7 @@ function tlT(x) { const P = SY.parts, segs = [...atrack.querySelectorAll(".sg")]
   for (let i = 0; i < P.length; i++) { const el = segs[i]; if (x <= el.offsetLeft + el.offsetWidth || i === P.length - 1) return P[i].t0 + Math.max(0, Math.min(1, (x - el.offsetLeft) / el.offsetWidth)) * (P[i].t1 - P[i].t0); } }
 function placePins() { if (!SY) return; atrack.querySelectorAll(".pin").forEach((el) => (el.style.left = `${tlX(SY.questions[+el.dataset.k].t)}px`)); }
 { let drag = false; const set = (e) => { const r = atrack.getBoundingClientRect(); aT = tlT(e.clientX - r.left); aUser = performance.now(); aHold = 0; };
-  $("archtl").addEventListener("pointerdown", (e) => { if (!SY) return; drag = true; $("archtl").setPointerCapture(e.pointerId); set(e); });
+  $("archtl").addEventListener("pointerdown", (e) => { if (!SY) return; track("stitched timeline"); drag = true; $("archtl").setPointerCapture(e.pointerId); set(e); });
   $("archtl").addEventListener("pointermove", (e) => drag && set(e)); $("archtl").addEventListener("pointerup", () => (drag = false)); }
 function showQ(k) {
   arch.clearExtra(); const q = SY.questions[k], D = SX.D;
@@ -663,7 +670,7 @@ function showQ(k) {
     <div class="qa"><span class="ic k-answer">${ICON.answer}</span><span>${esc(q.answer)}</span><span class="cons">${q.correct ? "correct" : "wrong"}</span></div>
     <div class="qr">retrieved: ${q.retrieved.map((r) => esc(r.name)).join(", ")} · ${esc(q.reader || "")}</div>`; qcall.classList.add("on");
 }
-$("goStitch").onclick = async () => { await select("stitch"); $("watch").scrollIntoView({ behavior: "smooth" }); };
+$("goStitch").onclick = async () => { track("watch stitched in 3d"); await select("stitch"); $("watch").scrollIntoView({ behavior: "smooth" }); };
 let aLast = performance.now();
 function frameArch(now) {
   if (!arch || !SY || !arch.visible) { aLast = now; return; } const dt = Math.min(0.1, (now - aLast) / 1000); aLast = now; const D = SX.D;
@@ -688,7 +695,7 @@ trackP.then((J) => {
   }
   G.innerHTML = h; G.insertAdjacentHTML("afterend", `<div class="trackleg">${Object.entries(J.objects).map(([id, n]) => `<span><i style="background:${J.colors[id]}"></i>${n}</span>`).join("")}</div>`);
 });
-{ const v = $("wt"); new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? v.play().catch(() => {}) : v.pause())), { threshold: 0.4 }).observe(v); }
+{ const v = $("wt"); v.addEventListener("play", () => track("walkthrough played"), { once: true }); new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? v.play().catch(() => {}) : v.pause())), { threshold: 0.4 }).observe(v); }
 
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {
@@ -735,5 +742,8 @@ function loop() {
   requestAnimationFrame(loop);
 }
 await select(Q.get("ds") || "hdepic"); loop();
+{ const seen = new Set(), io = new IntersectionObserver((es) => es.forEach((e) => {                        // how far people scroll: each section once per visit
+    const id = e.target.id; if (e.isIntersecting && !seen.has(id)) { seen.add(id); track(`reached ${id}`); } }), { threshold: 0.35 });
+  document.querySelectorAll("section[id]").forEach((el) => io.observe(el)); }
 if (Q.get("only")) for (const el of document.querySelectorAll("section, .switch")) el.style.display = el.id === Q.get("only") ? "" : "none";   // (tests) one section
 resultsP.then((R) => { try { if (R) charts(R); } catch (e) { console.error(e); } });
