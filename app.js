@@ -17,6 +17,10 @@ const DATASETS = [["hdepic", "Kitchen", "HD-EPIC"], ["ucs", "Mall", "UCS-Bench"]
 const UP = { hdepic: "z", vq3d: "z", ucs: "-y", stitch: "-y" };    // which world axis points up
 const HFOV = { hdepic: 100, ucs: 68, vq3d: 92, stitch: 68 };       // drawn field of view of each wearer camera (deg)
 const PT = { hdepic: 0.022, ucs: 0.026, vq3d: 0.034, stitch: 0.05 };   // fallback point size (memory units)
+const VIEW = { hdepic: [160, 21, 1.33], ucs: [180, 32, 0.62], vq3d: [250, 30, 1.0], stitch: [0, 34, 1.0] };   // default orbit view: azimuth, elevation (deg), distance (x radius)
+const FOCUS = { hdepic: 0, ucs: 2.6, vq3d: 1.6, stitch: 4.5 };
+const SPLAT = { vq3d: 1.6 };                                       // dense point size (x the fused spacing; default 2.3)
+const NEAR = { ucs: 1, vq3d: 1 };                                  // orbit around the wearer's current area rather than the whole scene     // hero: the cloud stays bright within this distance of the wearer, then fades (0 = off)
 const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 const hue = (id) => (id * 137.508) % 360;
 const col = (id, a = 1, l = 62) => `hsla(${hue(id)},72%,${l}%,${a})`;
@@ -134,12 +138,12 @@ class World {
     const rad = (this.rad = Math.max(1.5, box.getSize(new THREE.Vector3()).length() * 0.5)); this.ctr = ctr;
     this.scene.fog = new THREE.Fog(0x060708, rad * 1.5, rad * 5);
     if (X.sparse) this.setCloud(X.sparse, rad * 0.006);
-    X.denseP.then((d) => { if (d && this.X === X) this.setCloud(d, d.point ? d.point * 2.3 : PT[X.name], true); });
+    X.denseP.then((d) => { if (d && this.X === X) this.setCloud(d, d.point ? d.point * (SPLAT[X.name] || 2.3) : PT[X.name], true); });
     const cuts = (X.D.parts || []).slice(1).map((p) => X.D.camera.findIndex((c) => c[0] >= p.t0)), edges = [0, ...cuts, camPts.length];   // no path line across a cut
     this.paths = edges.slice(0, -1).map((a, i) => { const pts = camPts.slice(a, edges[i + 1]);
       const all = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x5a6372, transparent: true, opacity: 0.6, fog: false }));
       const now = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffffff, fog: false }));
-      all.visible = now.visible = this.showPath; g.add(all, now); return { now, a, n: pts.length }; });
+      all.visible = now.visible = this.showPath; g.add(all, now); return { all, now, a, n: pts.length }; });
     const dot = new THREE.SphereGeometry(rad * 0.009, 16, 12);
     this.nodes = X.D.objects.map((o) => { const m = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: col3(o.id), transparent: true, fog: false }));
       m.visible = false; m.renderOrder = 2; m.userData = { o, born: -1 }; g.add(m); return m; });
@@ -154,14 +158,19 @@ class World {
     if (this.cloud) { this.g.remove(this.cloud); this.cloud.geometry.dispose(); this.cloud.material.dispose(); }
     const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(c.pos, 3)); geo.setAttribute("color", new THREE.BufferAttribute(c.rgb, 3, true));
     const mat = new THREE.PointsMaterial({ size, vertexColors: true, map: DISC, alphaTest: 0.5, transparent: false });
-    const px = ((dense ? 11 : 4.5) * this.r.getPixelRatio()).toFixed(1), near = (this.rad * 0.05).toFixed(3);
-    mat.onBeforeCompile = (sh) => { sh.vertexShader = sh.vertexShader.replace("#include <color_vertex>", "#include <color_vertex>\n  vColor.rgb = pow(vColor.rgb, vec3(2.2));")
-      .replace("#include <fog_vertex>", `#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.6, ${px});\n  if (-mvPosition.z < ${near}) gl_PointSize = 0.0;`); };   // close points stay small; the nearest vanish
-    mat.customProgramCacheKey = () => `cloud${px}_${near}`;
+    const px = ((dense ? 11 : 4.5) * this.r.getPixelRatio()).toFixed(1), near = (this.rad * 0.05).toFixed(3), U = (this.cloudUni = { uFocus: { value: new THREE.Vector3() }, uRad: { value: 0 } });
+    mat.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); sh.vertexShader = "uniform vec3 uFocus;\nuniform float uRad;\n" + sh.vertexShader
+      .replace("#include <color_vertex>", "#include <color_vertex>\n  vColor.rgb = pow(vColor.rgb, vec3(2.2));")
+      .replace("#include <fog_vertex>", `#include <fog_vertex>\n  gl_PointSize = clamp(gl_PointSize, 1.6, ${px});\n  if (-mvPosition.z < ${near}) gl_PointSize = 0.0;
+  float fd = uRad > 0.0 ? smoothstep(uRad, uRad * 2.2, distance((modelMatrix * vec4(transformed, 1.0)).xyz, uFocus)) : 0.0;   // away from the focus: grey, dark, small
+  vColor.rgb = mix(vColor.rgb, vec3(dot(vColor.rgb, vec3(0.3, 0.59, 0.11))) * 0.14, fd * 0.93);\n  gl_PointSize *= 1.0 - 0.6 * fd;`); };   // close points stay small; the nearest vanish
+    mat.customProgramCacheKey = () => `cloudf${px}_${near}`;
     this.cloud = new THREE.Points(geo, mat); this.g.add(this.cloud);
   }
   fly(tgt, pos, snap = false) { if (snap) { this.ctl.target.copy(tgt); this.cam.position.copy(pos); this.goal = null; } else this.goal = { tgt: tgt.clone(), pos: pos.clone() }; }
-  overview(snap = false) { this.fly(this.ctr, this.ctr.clone().add(new THREE.Vector3(this.rad * 0.72, this.rad * 0.8, this.rad * 0.72)), snap); }
+  overview(snap = false, tgt = this.ctr, k = 1) {                  // the dataset's default viewing direction (VIEW), around tgt
+    const [az, el, d] = (Q.get("view") || "").split(",").length === 3 ? Q.get("view").split(",").map(Number) : VIEW[this.X?.name] || [45, 38, 1.29], A = (az * Math.PI) / 180, E = (el * Math.PI) / 180, r = this.rad * d * k;
+    this.fly(tgt, tgt.clone().add(new THREE.Vector3(r * Math.sin(A) * Math.cos(E), r * Math.sin(E), r * Math.cos(A) * Math.cos(E))), snap); }
   fit(pts, k = 2.2) {                                              // frame a set of points, keeping the current viewing direction (from above)
     if (!pts.length) return; const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
     const r = Math.max(this.rad * 0.16, ...pts.map((p) => p.distanceTo(c))), dir = this.cam.position.clone().sub(this.ctl.target);
@@ -178,7 +187,8 @@ class World {
     }
     for (const a of this.arrows) a.tube.visible = t >= a.t && !this.hl && !this.noArrows;
     const k0 = this.X.D.camera.findIndex((c) => c[0] > t), k = k0 === -1 ? this.X.D.camera.length : Math.max(1, k0);
-    for (const p of this.paths) p.now.geometry.setDrawRange(0, Math.max(0, Math.min(p.n, k - p.a)));
+    const s0 = this.trail ? Math.max(0, this.X.D.camera.findIndex((c) => c[0] >= t - this.trail)) : 0;   // trail: only the last few seconds of the path
+    for (const p of this.paths) { const a0 = Math.max(0, s0 - p.a); p.now.geometry.setDrawRange(a0, Math.max(0, Math.min(p.n, k - p.a) - a0)); p.all.visible = this.showPath && !this.trail; }
     if (this.cloud) this.cloud.material.color.setScalar(this.hl ? 0.5 : 1);          // dim by colour: opacity would push small points under the alpha test
     for (const s of this.extra.children) if (s.isSprite) { const h = (s.userData.h ?? 0.03) * (s.userData.k ?? 1); s.scale.set(h * s.userData.aspect, h, 1); }   // constant on screen
     return n;
@@ -187,7 +197,7 @@ class World {
   placeTags() {                                                   // a name tag on every visible dot; overlapping tags give way to bigger ones
     const w = this.host.clientWidth, h = this.host.clientHeight, shown = new Set(), v = new THREE.Vector3(), hr = this.host.getBoundingClientRect();
     const placed = (this.avoid || []).map((e) => { const r = e.getBoundingClientRect(); return [r.left - hr.left, r.top - hr.top, r.right - hr.left, r.bottom - hr.top]; });   // keep clear of overlaid text
-    const K = this.keys || new Set(), cand = this.nodes.filter((m) => m.visible && (!this.hl || this.hl.has(m.userData.o.id)))
+    const K = this.keys || new Set(), cand = this.nodes.filter((m) => m.visible && (!this.hl || this.hl.has(m.userData.o.id)) && (!this.onlySeen || this.hl || this.seen?.has(m.userData.o.id)))
       .sort((a, b) => (K.has(b.userData.o.id) - K.has(a.userData.o.id)) || ((this.seen?.has(b.userData.o.id) ?? 0) - (this.seen?.has(a.userData.o.id) ?? 0)) || b.userData.o.n_obs - a.userData.o.n_obs);
     for (const m of cand) {
       v.copy(m.position).project(this.cam); if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) continue;
@@ -229,7 +239,7 @@ const bar = $("bar"), fill = $("fill"), knob = $("knob"), vtex = new THREE.Video
 let live = null, rays = null, mode = "orbit";
 listeners.push((X) => {
   vid.src = X.A + X.D.video; vpane.style.setProperty("--ar", `${X.D.res[0]}/${X.D.res[1]}`);
-  hero.set(X); live = frustum(X, X.D.camera[0], hero.rad * 0.1, 0xffffff, vtex, 0.97); hero.g.add(live);
+  hero.set(X); hero.onlySeen = X.name !== "hdepic"; hero.trail = { ucs: 20, vq3d: 48, stitch: 60 }[X.name] || 0; live = frustum(X, X.D.camera[0], hero.rad * 0.1, 0xffffff, vtex, 0.97); hero.g.add(live);
   rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9, fog: false }));
   rays.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); rays.geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(64 * 6), 3)); hero.g.add(rays);
   bar.querySelectorAll(".tick, .cut").forEach((e) => e.remove());
@@ -238,7 +248,7 @@ listeners.push((X) => {
   $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; setMode(Q.get("mode") || mode); tryPlay();
 });
 function setMode(m) {
-  mode = m; hero.noArrows = m === "follow"; [...$("modes").children].forEach((b) => b.classList.toggle("on", b.dataset.m === m)); hero.ctl.autoRotate = m === "orbit";
+  mode = m; heroUpdate.part = -1; hero.noArrows = m === "follow"; [...$("modes").children].forEach((b) => b.classList.toggle("on", b.dataset.m === m)); hero.ctl.autoRotate = m === "orbit";
   if (m === "orbit") hero.overview();
 }
 for (const b of $("modes").children) b.onclick = () => { track(`hero view ${b.dataset.m}`); setMode(b.dataset.m); };
@@ -253,14 +263,22 @@ function heroUpdate(X, t) {
   const Fh = new THREE.Vector3(b.F.x, 0, b.F.z); if (Fh.lengthSq() < 1e-4) Fh.set(0, 0, -1); Fh.normalize(); const R = hero.rad;
   const now = performance.now(), a = 1 - Math.exp(-Math.min(1000, now - (heroUpdate.last || now)) / 420); heroUpdate.last = now;   // frame-rate independent easing
   if (mode === "follow") { hero.cam.position.lerp(b.C.clone().addScaledVector(Fh, -R * 0.48).addScaledVector(UPV, R * 0.3), a); hero.ctl.target.lerp(b.C.clone().addScaledVector(b.F, R * 0.16), a); }
-  else if (mode === "orbit") hero.ctl.target.lerp(hero.ctr.clone().lerp(b.C, 0.5), a * 0.4);          // circle the room, drifting with the wearer
+  else if (mode === "orbit") {
+    const pi = X.D.parts ? X.D.parts.findIndex((p) => t >= p.t0 && t < p.t1 + 0.01) : -1;
+    if (pi >= 0) {                                                  // stitched: circle the current scene's island, fly to the next one at a cut
+      if (pi !== heroUpdate.part) { heroUpdate.part = pi; const ps = X.D.camera.filter((q) => q[0] >= X.D.parts[pi].t0 && q[0] < X.D.parts[pi].t1).map((q) => X.W2T(q.slice(1, 4)));
+        heroUpdate.isl = new THREE.Box3().setFromPoints(ps).getCenter(new THREE.Vector3()); hero.overview(false, heroUpdate.isl, 0.5); }
+      hero.ctl.target.lerp(heroUpdate.isl.clone().lerp(b.C, 0.35), a * 0.4);
+    } else hero.ctl.target.lerp(NEAR[X.name] ? b.C.clone().addScaledVector(b.F, R * 0.08) : hero.ctr.clone().lerp(b.C, 0.5), a * 0.4);   // circle the room (or the wearer's area), drifting with the wearer
+  }
+  if (hero.cloudUni) { hero.cloudUni.uFocus.value.copy(b.C); hero.cloudUni.uRad.value = FOCUS[X.name] || 0; }
   else if (mode === "top") { hero.cam.position.lerp(b.C.clone().addScaledVector(UPV, R * 1.15).addScaledVector(Fh, -R * 0.45), a); hero.ctl.target.lerp(b.C, a); }
   return n;
 }
 // ---- hero scroll: the paper title sits above the 3D view, then shrinks into the corner as the view grows to full screen
 const heroT = $("heroText"), worldEl = $("world"), heroW = $("watch"), scrimEl = $("scrim"), swBar = document.querySelector(".switch");
 function heroLayout() {
-  const vw = innerWidth, vh = Math.max(620, innerHeight), small = vw < 700, G = Math.max(16, Math.min(40, vw * 0.03));
+  const vw = innerWidth, vh = Math.max(620, innerHeight), small = vw < 700, G = Math.max(0, (vw - 1480) / 2) + Math.max(16, Math.min(40, vw * 0.03));   // the sections' content edge
   const p = Q.has("p") ? +Q.get("p") : Math.max(0, Math.min(1, (scrollY - heroW.offsetTop) / (0.5 * vh))), e = p * p * (3 - 2 * p);
   const bw = heroT.offsetWidth, bh = heroT.offsetHeight, x0 = (vw - bw) / 2, y0 = small ? 64 : 78, s1 = small ? 0.62 : Math.max(0.5, Math.min(0.62, 520 / bw));
   const x = x0 + (G - x0) * e, y = y0 + ((small ? 108 : 96) - y0) * e, sc = 1 + (s1 - 1) * e;

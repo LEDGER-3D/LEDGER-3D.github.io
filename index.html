@@ -25,7 +25,8 @@
   .switch button { border:0; background:transparent; color:var(--ink2); padding:7px 14px; border-radius:999px; cursor:pointer; font-size:13px; display:flex; gap:7px; align-items:baseline; }
   .switch button small { color:var(--ink3); font-size:11px; }
   .switch button.on { background:#1f2630; color:#fff; } .switch button.on small { color:#9cc3f5; }
-  section { position:relative; padding:84px 20px 50px; max-width:1240px; margin:0 auto; }
+  :root { --pad:clamp(16px,3vw,40px); --maxw:1480px; }
+  section { position:relative; padding:84px var(--pad) 50px; max-width:var(--maxw); margin:0 auto; }
   .eyebrow { font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink3); }
   h1 { font-size:clamp(46px,8vw,104px); line-height:.92; letter-spacing:-.045em; margin:10px 0 0; font-weight:800; }
   h2 { font-size:clamp(34px,5.2vw,64px); line-height:1; letter-spacing:-.035em; margin:6px 0 22px; font-weight:780; }
@@ -38,9 +39,9 @@
   .pane video, .pane canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
   .pane video { object-fit:contain; background:#000; }
   h1.title { font-size:clamp(30px,4.4vw,58px); line-height:1.02; letter-spacing:-.035em; margin:8px 0 0; font-weight:780; }
-  section.wide { max-width:1680px; }
+  section.wide { max-width:var(--maxw); }
   .csub { font-size:15px; color:var(--ink2); margin:-10px 0 12px; } .csub b { color:#fff; }
-  .sdesc { font-size:16px; line-height:1.55; color:var(--ink2); max-width:820px; margin:-6px 0 18px; }
+  .sdesc { font-size:16px; line-height:1.6; color:var(--ink2); max-width:860px; margin:-6px 0 18px; }
   .rnote { font-size:clamp(18px,1.7vw,22px); line-height:1.5; color:#d6dbe2; max-width:980px; margin:8px 0 24px; } .rnote b { color:#fff; }
   .tags3d { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:3; }
   .tags3d span { position:absolute; left:0; top:0; font:600 11px/15px Inter,-apple-system,sans-serif; color:#e9ecf1; background:rgba(8,10,13,.72);
@@ -224,8 +225,8 @@
  <div class="heroSticky">
   <div class="heroText" id="heroText">
     <h1 class="title"><span class="hl">Never Look Back: Understanding Persistence</span><span class="hl grad">in 3D Object Memory from Egocentric Videos</span></h1>
-    <div class="hl fade authors">Shravan S Chaudhari<sup>1</sup><i>·</i>William Paul<sup>2</sup><i>·</i>Suchi Saria<sup>1</sup><i>·</i>Rama Chellappa<sup>1</sup><i>·</i>Homanga Bharadhwaj<sup>1</sup></div>
-    <div class="hl fade affils"><sup>1</sup><a href="https://www.jh.edu" target="_blank" rel="noopener">Johns Hopkins University</a><i>·</i><sup>2</sup><a href="https://www.jhuapl.edu" target="_blank" rel="noopener">Johns Hopkins University Applied Physics Laboratory</a></div>
+    <div class="hl fade authors">Shravan S Chaudhari<sup>1</sup><i>·</i>William Paul<sup>2</sup><i>·</i>Suchi Saria<sup>1</sup><i>·</i>Rama Chellappa<sup>1*</sup><i>·</i>Homanga Bharadhwaj<sup>1*</sup></div>
+    <div class="hl fade affils"><sup>1</sup><a href="https://www.jh.edu" target="_blank" rel="noopener">Johns Hopkins University</a><i>·</i><sup>2</sup><a href="https://www.jhuapl.edu" target="_blank" rel="noopener">Johns Hopkins University Applied Physics Laboratory</a><i>·</i><sup>*</sup>equal advising</div>
     <div class="hl fade btns"><span class="btn dis">Paper · coming soon</span><a class="btn" href="#">Code</a><a class="btn" href="#approach">How it works ↓</a></div>
   </div>
   <div class="world" id="world">
@@ -248,14 +249,14 @@
 <section id="approach" class="wide">
   <div class="eyebrow">Approach</div>
   <h2>How LEDGER works.</h2>
-  <p class="sdesc">LEDGER (Long-horizon Egocentric Descriptions, Geometry, and Event Records) is built offline from an egocentric recording, with camera poses supplied or estimated. A vision-language model names the objects in sampled frames, a detector finds them, and each sighting is lifted to 3D. Observations are associated over time and kept after objects leave view, including objects the wearer never touches. Each object's history is summarized as rest segments: a move is recorded only after repeated evidence, so localization noise is not mistaken for movement, and each segment carries a short description of its context, such as what a container held. Questions are answered later from these records as text, without the images or the video.</p>
+  <p class="sdesc">LEDGER (Long-horizon Egocentric Descriptions, Geometry, and Event Records) builds a memory of objects from an egocentric video. It finds the objects in sampled frames, places each one in 3D using the camera pose, and links repeated sightings of the same object over time. Objects stay in memory after they leave view, including ones the wearer never touches. Each object's history is split into rest segments: a move is recorded only when several observations agree, so small localization errors are not counted as moves. Each segment also gets a short description, for example what a container held. Questions are answered later from these records as text, without the video.</p>
   <div class="wtw"><video id="wt" src="assets/walkthrough.mp4" poster="assets/walkthrough_poster.jpg" muted playsinline loop controls autoplay preload="metadata"></video></div>
 </section>
 
 <section id="stitch-s" class="wide">
   <div class="eyebrow">Stitched streams</div>
   <h2>Multiple scenes.<br><span class="grad">Single memory.</span></h2>
-  <p class="sdesc">Experience accumulates across places. Here recordings from three different kitchens are stitched into one 21-minute stream, and LEDGER builds a single memory over all of it. Unrelated scenes are not registered into a shared frame, so each kitchen keeps its own island of objects, and every earlier island stays in memory while the wearer moves on. The four questions are those of the paper's Figure 3, answered from this one memory by LEDGER's reader, without frames. Across 100 stitched streams, returning to the same scene costs the memory almost nothing, while a change of scene costs it 5.7 points, because construction and retrieval both assume one scene; building the memory per scene recovers part of that loss.</p>
+  <p class="sdesc">Here, recordings from three different kitchens are joined into one 21-minute stream, and LEDGER builds one memory for the whole stream. The kitchens are not placed in a shared 3D frame, so each appears as its own island. Objects from earlier kitchens stay in memory as the wearer moves on. The questions are the ones from Figure 3 of the paper, answered from this memory without any frames. In our study of 100 such streams, returning to the same scene cost the memory little, but moving to a new scene lowered its accuracy; building one memory per scene recovered part of this loss.</p>
   <div class="stitchc" id="stitchCounts"></div>
   <div class="archw">
     <div class="pane arch" id="arch"><div class="isl" id="islands"></div><div class="qcall" id="qcall"></div><div class="count" id="archCount" style="top:14px"></div></div>
@@ -264,17 +265,17 @@
   </div>
   <div class="trackw">
     <h3>Tracking across a cut.</h3>
-    <p class="sdesc">Point trackers follow pixels through one continuous video. Across a cut they keep an object only when the new view happens to resemble the old one: here AllTracker, seeded before the cut, stays on the projector, shelf and flowers on day 6 but loses the microwave. After a change of place it drops every object (all 9 we tested), so nothing seen before the cut can be asked about later. LEDGER keeps every object in memory across the cut, and here finds all four again as the same memory objects on day 6.</p>
+    <p class="sdesc">Point trackers follow pixels through a continuous video. At a cut, they keep an object only if the new view happens to look like the old one. In this example, AllTracker keeps the projector, shelf and flowers on day 6 but loses the microwave. After a change of place, it lost all 9 objects we tested, so nothing from before the cut can be asked about later. LEDGER keeps the objects in memory across the cut, and here finds all four again on day 6.</p>
     <div class="mini" style="margin-bottom:8px">another stitched stream: the same shared house on two different days (EgoLife, in UCS-Bench) · faces blurred</div>
     <div class="trackgrid" id="trackgrid"></div>
   </div>
   <div class="btns" style="align-items:center"><button class="btn" id="goStitch" style="cursor:pointer">Watch the stitched stream in 3D ↑</button>
-    <span class="mini">100 stitched streams, 3,244 paired questions · LEDGER memory, stitched vs single: same scene −0.5 points · change of scene −5.7 points</span></div>
+    <span class="mini">from the paper's study of 100 stitched streams (3,244 questions)</span></div>
 </section>
 
 <section id="pipeline">
   <h2>See every stage.</h2>
-  <p class="sdesc">Qwen3.5-9B names the objects in each sampled frame, and synonym merging turns the names into a vocabulary for the detector (YOLO-World, or SAM 3 where localization accuracy is measured). From the image, the box and the label, WildDet3D predicts a 3D box in camera coordinates, and the camera pose, supplied with the dataset or estimated with FastVGGT, places its centre in scene coordinates. Move the lens over the frame to see each stage's output.</p>
+  <p class="sdesc">Qwen3.5-9B lists the objects in each sampled frame. YOLO-World finds them in the frame (SAM 3 on Ego4D, where localization accuracy is measured). WildDet3D turns each detection into a 3D box, and the camera pose, given by the dataset or estimated with FastVGGT, places it in the scene. Move the lens over the frame to see each stage.</p>
   <div class="pills" id="pills"></div>
   <div class="pipe">
     <div>
@@ -292,7 +293,7 @@
 
 <section id="collapse-s">
   <h2>Re-identification<br><span class="grad">through clustering and tracking.</span></h2>
-  <p class="sdesc">The same object is sighted many times, from different angles and sometimes under different names. Observations are matched in time order to existing objects by label and by distance from each object's latest position. A second pass re-identifies objects that this association split into several tracks: the SAM 3 video tracker propagates each fragment's masks and merges fragments whose masks agree, subject to co-occurrence and 3D-distance checks. Records persist after objects leave view, though a large move can still create a new identity.</p>
+  <p class="sdesc">The same object is seen many times, sometimes under different names. LEDGER matches each new sighting to an existing object with the same label, close to where that object was last seen. A second pass uses the SAM 3 video tracker to merge objects that were wrongly split into several tracks. Objects stay in memory after they leave view, though a large move can still create a new entry.</p>
   <div class="csub" id="csub"></div>
   <div class="steps" id="steps"></div>
   <canvas id="collapse"></canvas>
@@ -302,7 +303,7 @@
 <section id="ask" class="wide">
   <div class="eyebrow">Ask LEDGER anything</div>
   <h2>Watch LEDGER look things up.</h2>
-  <p class="sdesc">Here LEDGER's records are read by ReMEmbR's querying agent with GPT-5.4 (LEDGER<sub>agent</sub> in the paper; LEDGER's own reader answers in a single call). The agent searches the memory by meaning, time or place, reads the records that come back and the objects they name, and answers from that text alone, never from frames. Each question shown is one it answers correctly in at least two of three runs; other methods' outcomes on the same question are listed under the answer.</p>
+  <p class="sdesc">Here, ReMEmbR's question-answering agent (with GPT-5.4) reads LEDGER's memory. It searches the memory by meaning, time or place, reads what comes back, and answers from that text only. LEDGER's own reader, used for the main results, answers in a single step instead. The questions shown are ones the agent answered correctly in at least two of three runs; below each answer are the results of other methods on the same question.</p>
   <div class="ask2">
     <div class="pane askw" id="askview"><div class="cap3d" id="cap3d"></div></div>
     <div class="feedw">
@@ -314,7 +315,7 @@
 
 <section id="results">
   <div class="eyebrow">Results</div>
-  <p class="rnote">On all 2,400 3D-perception and object-motion questions of HD-EPIC, LEDGER's memory raises GPT-5.4 from <b>29.7%</b> to <b>42.6%</b>, above every rebuilt memory (AMEGO 34.7%, DirectMe 30.7%). On UCS-Bench, reading the memory alone raises accuracy from 33.8% to <b>38.5%</b>, against 30.0% for DirectMe's graph; 48 frames alone still score higher (44.4%), and adding the memory to them gives <b>46.3%</b>. On Ego4D VQ3D it localizes named objects with a median error of <b>0.99 m</b> on the queries it answers, against 1.33 m for the next best (OSNOM). Its advantage holds as recordings grow longer, up to 75 minutes on HD-EPIC.</p>
+  <p class="rnote">On HD-EPIC, LEDGER's memory helps the answering model more than any of the memories we rebuilt (AMEGO, DirectMe, OSNOM and ReMEmbR), most of all for objects the wearer never touched. On UCS-Bench, reading the memory is better than reading DirectMe's scene graph; sampled frames still do better on their own, but adding the memory to them helps further. On Ego4D VQ3D, it places named objects closer to their true positions than the other memories. The benefit holds as recordings get longer, while changes of scene remain a weakness.</p>
   <div class="charts">
     <div class="chart" id="c1"><div class="mini">HD-EPIC · accuracy</div><svg></svg><div class="tip"></div></div>
     <div class="chart" id="c2"><div class="mini">Ego4D VQ3D · median 3D error (m) · lower is better</div><svg></svg><div class="tip"></div></div>
@@ -322,6 +323,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261004220753"></script>
+<script type="module" src="app.js?v=20261005002217"></script>
 </body>
 </html>
