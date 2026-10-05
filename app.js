@@ -228,7 +228,7 @@ listeners.push((X) => {
   bar.querySelectorAll(".tick, .cut").forEach((e) => e.remove());
   for (const p of (X.D.parts || []).slice(1)) { const d = document.createElement("div"); d.className = "cut"; d.style.left = `${(100 * p.t0) / X.D.duration}%`; d.dataset.l = "cut · next scene"; bar.appendChild(d); }
   for (const o of X.moves) { const d = document.createElement("div"); d.className = "tick"; d.style.left = `${(100 * o.segs[1].t[0]) / X.D.duration}%`; bar.appendChild(d); }
-  $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; setMode(Q.get("mode") || mode); vid.play().catch(() => {});
+  $("speedNote").textContent = X.speed > 1 ? `${X.speed}× time-lapse` : ""; setMode(Q.get("mode") || mode); tryPlay();
 });
 function setMode(m) {
   mode = m; hero.noArrows = m === "follow"; [...$("modes").children].forEach((b) => b.classList.toggle("on", b.dataset.m === m)); hero.ctl.autoRotate = m === "orbit";
@@ -273,11 +273,18 @@ function seekFrom(e) { tFix = null; const r = bar.getBoundingClientRect(); vid.c
 let dragging = false;
 bar.addEventListener("pointerdown", (e) => { dragging = true; bar.setPointerCapture(e.pointerId); seekFrom(e); });
 bar.addEventListener("pointermove", (e) => dragging && seekFrom(e)); bar.addEventListener("pointerup", () => (dragging = false));
-$("play").onclick = () => { tFix = null; vid.paused ? vid.play() : vid.pause(); };
+// the hero video plays by itself: autoplay attribute, retried when it becomes playable, when the hero comes into view, when the tab
+// becomes visible and on the first gesture (some browsers only allow play after one); a pause by the user is respected
+let userPaused = false, heroInView = true;
+function tryPlay() { if (userPaused || !heroInView || tFix !== null) return; vid.muted = true; const p = vid.play(); if (p) p.catch(() => {}); }
+for (const ev of ["loadedmetadata", "canplay"]) vid.addEventListener(ev, tryPlay);
+document.addEventListener("visibilitychange", () => !document.hidden && tryPlay());
+for (const ev of ["pointerdown", "keydown", "touchstart", "wheel", "scroll"]) addEventListener(ev, function once() { if (vid.paused) tryPlay(); if (!vid.paused) removeEventListener(ev, once); }, { passive: true });
+$("play").onclick = () => { tFix = null; if (vid.paused) { userPaused = false; tryPlay(); } else { userPaused = true; vid.pause(); } };
 $("pipx").onclick = () => vpane.classList.toggle("big");
 vid.addEventListener("play", () => { $("play").textContent = "❚❚"; $("phint").style.opacity = 0; hero.highlight(null); vctx.clearRect(0, 0, vover.width, vover.height); });
 vid.addEventListener("pause", () => { $("play").textContent = "▶"; $("phint").style.opacity = 1; });
-new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? vid.play().catch(() => {}) : vid.pause())), { threshold: 0.3 }).observe($("world"));
+new IntersectionObserver((es) => es.forEach((e) => { heroInView = e.isIntersecting; if (heroInView) tryPlay(); else if (!vid.paused) vid.pause(); }), { threshold: 0.05 }).observe(document.querySelector(".heroSticky"));
 const pick = (f, mx, my) => f.dets.filter((d) => d.ob !== undefined && mx >= d.box[0] && mx <= d.box[2] && my >= d.box[1] && my <= d.box[3])
   .sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0];
 vpane.addEventListener("pointermove", (e) => {

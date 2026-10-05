@@ -231,11 +231,11 @@
     <div class="scrim" id="scrim"></div>
     <div class="modes" id="modes"><button data-m="orbit">Orbit</button><button data-m="follow">Follow</button><button data-m="top">Top</button></div>
     <div class="count" id="count"></div>
-    <div class="pip" id="vpane"><video id="vid" muted playsinline loop preload="metadata"></video>
+    <div class="pip" id="vpane"><video id="vid" muted playsinline loop autoplay preload="auto"></video>
       <div class="lbl">what you saw</div><div class="paused-hint" id="phint">hover anything</div><button class="pipx" id="pipx" aria-label="enlarge the video">⤢</button></div>
     <div class="hud">
       <div class="ticker" id="ticker"></div>
-      <div class="transport"><button class="play" id="play" aria-label="play / pause">❚❚</button>
+      <div class="transport"><button class="play" id="play" aria-label="play / pause">▶</button>
         <div class="bar" id="bar"><div class="track"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
         <div class="time" id="time">0:00</div></div>
       <div class="hint"><span>drag to look around</span><span>hover a dot</span><span>pause, then hover the video</span><span><span style="color:#e8703a">▮</span> an object moved</span><span id="speedNote"></span></div>
@@ -248,7 +248,7 @@
   <div class="eyebrow">Approach</div>
   <h2>How LEDGER works.</h2>
   <p class="sdesc">LEDGER (Long-horizon Egocentric Descriptions, Geometry, and Event Records) is built offline from an egocentric recording, with camera poses supplied or estimated. A vision-language model names the objects in sampled frames, a detector finds them, and each sighting is lifted to 3D. Observations are associated over time and kept after objects leave view, including objects the wearer never touches. Each object's history is summarized as rest segments: a move is recorded only after repeated evidence, so localization noise is not mistaken for movement, and each segment carries a short description of its context, such as what a container held. Questions are answered later from these records as text, without the images or the video.</p>
-  <div class="wtw"><video id="wt" src="assets/walkthrough.mp4" poster="assets/walkthrough_poster.jpg" muted playsinline loop controls preload="metadata"></video></div>
+  <div class="wtw"><video id="wt" src="assets/walkthrough.mp4" poster="assets/walkthrough_poster.jpg" muted playsinline loop controls autoplay preload="metadata"></video></div>
 </section>
 
 <section id="stitch-s" class="wide">
@@ -321,6 +321,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261004204134"></script>
+<script type="module" src="app.js?v=20261004204842"></script>
 </body>
 </html>
