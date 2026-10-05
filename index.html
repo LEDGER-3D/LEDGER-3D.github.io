@@ -21,6 +21,7 @@
   nav a { text-decoration:none; } nav a:hover { color:var(--ink); }
   @media (max-width:700px) { nav a { display:none; } }
   .switch { position:sticky; top:46px; z-index:40; display:flex; justify-content:center; padding:8px 0; pointer-events:none; margin-bottom:-52px; }
+  .heroViz .modes { top:62px; } .heroViz .count { top:104px; }
   .switch div { pointer-events:auto; display:flex; gap:4px; background:#0d0f12e6; backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:999px; padding:4px; }
   .switch button { border:0; background:transparent; color:var(--ink2); padding:7px 14px; border-radius:999px; cursor:pointer; font-size:13px; display:flex; gap:7px; align-items:baseline; }
   .switch button small { color:var(--ink3); font-size:11px; }
@@ -52,16 +53,15 @@
   .ticker { position:absolute; left:14px; right:14px; bottom:12px; font-size:13px; color:#fff; text-shadow:0 1px 3px #000; pointer-events:none; }
   .count { position:absolute; right:clamp(16px,3vw,40px); top:150px; z-index:6; font:600 12px ui-monospace,Menlo,monospace; color:#9cc3f5; pointer-events:none; text-shadow:0 1px 3px #000; }
   /* hero: the wearer moving through the reconstructed scene */
-  .heroW { max-width:none; padding:0; height:calc(max(620px, 100vh) + 85vh); }
-  .heroSticky { position:sticky; top:0; height:max(620px, 100vh); overflow:hidden; }
-  .world { position:absolute; inset:0; background:radial-gradient(ellipse at 50% 45%, #121820, #060708 72%); overflow:hidden; border:1px solid transparent; }
-  .world.boxed { border-color:var(--line); }
+  .heroW { padding-top:clamp(86px,12vh,130px); padding-bottom:26px; text-align:center; }
+  .heroViz { position:relative; }
+  .world { position:relative; height:max(620px, 100vh); background:radial-gradient(ellipse at 50% 45%, #121820, #060708 72%); overflow:hidden; }
   .world > canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
-  .scrim { position:absolute; inset:0; pointer-events:none; z-index:2; background:linear-gradient(90deg,#060708d0 0%,#06070866 26%,#06070800 46%), linear-gradient(0deg,#060708f0 0%,#06070800 24%), linear-gradient(180deg,#060708c0 0%,#06070800 16%); }
-  .heroText { position:absolute; left:0; top:0; z-index:8; width:max-content; max-width:min(1240px, 94vw); transform-origin:0 0; pointer-events:none; will-change:transform; }
-  .heroText .hl { display:block; width:fit-content; will-change:transform; }
-  .heroText .btns { pointer-events:auto; margin-top:18px; }
-  .heroText h1.title { font-size:clamp(28px,3.4vw,54px); line-height:1.08; margin:0; text-shadow:0 2px 24px #000; }
+  .scrim { position:absolute; inset:0; pointer-events:none; z-index:2; background:linear-gradient(0deg,#060708f0 0%,#06070800 24%), linear-gradient(180deg,#060708b0 0%,#06070800 14%); }
+  .heroText { max-width:1240px; margin:0 auto; }
+  .heroText .btns { justify-content:center; margin-top:18px; }
+  .heroText h1.title { font-size:clamp(28px,3.4vw,54px); line-height:1.08; margin:0; }
+  .heroText h1.title span { display:block; }
   .authors { font-size:clamp(15px,1.35vw,20px); color:#eef0f3; margin-top:18px; font-weight:500; }
   .authors i, .affils i { font-style:normal; color:var(--ink3); margin:0 .55em; }
   .authors sup, .affils sup { font-size:.62em; color:#9cc3f5; margin-left:1px; }
@@ -76,7 +76,7 @@
   .pipx { position:absolute; right:8px; top:8px; width:26px; height:26px; border-radius:7px; border:1px solid #ffffff33; background:#000a; color:#fff; cursor:pointer; font-size:13px; line-height:1; z-index:2; }
   .hud { position:absolute; left:clamp(16px,3vw,40px); right:clamp(16px,3vw,40px); bottom:14px; z-index:6; }
   .hud .ticker { position:static; min-height:19px; font-size:14px; }
-  @media (max-width:700px) { .heroText { max-width:92%; } .pip { width:44vw; bottom:150px; } .modes { top:auto; bottom:150px; right:12px; } .count { display:none; } .switch button small { display:none; } .switch button { padding:7px 11px; } .hud .hint { display:none; } }
+  @media (max-width:700px) { .pip { width:44vw; bottom:150px; } .modes { top:auto; bottom:150px; right:12px; } .count { display:none; } .switch button small { display:none; } .switch button { padding:7px 11px; } .hud .hint { display:none; } }
   /* ask: rolling questions */
   .ask2 { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); gap:14px; }
   @media (max-width:900px) { .ask2 { grid-template-columns:1fr; } }
@@ -220,15 +220,16 @@
 <body>
 <nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#approach">Approach</a><a href="#stitch-s">Stitched</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
 
-<div class="switch"><div id="switch"></div></div>
 <section id="watch" class="heroW">
- <div class="heroSticky">
   <div class="heroText" id="heroText">
-    <h1 class="title"><span class="hl">Never Look Back: Understanding Persistence</span><span class="hl grad">in 3D Object Memory from Egocentric Videos</span></h1>
-    <div class="hl fade authors">Shravan S Chaudhari<sup>1</sup><i>·</i>William Paul<sup>2</sup><i>·</i>Suchi Saria<sup>1</sup><i>·</i>Rama Chellappa<sup>1*</sup><i>·</i>Homanga Bharadhwaj<sup>1*</sup></div>
-    <div class="hl fade affils"><sup>1</sup><a href="https://www.jh.edu" target="_blank" rel="noopener">Johns Hopkins University</a><i>·</i><sup>2</sup><a href="https://www.jhuapl.edu" target="_blank" rel="noopener">Johns Hopkins University Applied Physics Laboratory</a><i>·</i><sup>*</sup>equal advising</div>
-    <div class="hl fade btns"><span class="btn dis">Paper · coming soon</span><a class="btn" href="#">Code</a><a class="btn" href="#approach">How it works ↓</a></div>
+    <h1 class="title"><span>Never Look Back: Understanding Persistence</span><span class="grad">in 3D Object Memory from Egocentric Videos</span></h1>
+    <div class="authors">Shravan S Chaudhari<sup>1</sup><i>·</i>William Paul<sup>2</sup><i>·</i>Suchi Saria<sup>1</sup><i>·</i>Rama Chellappa<sup>1*</sup><i>·</i>Homanga Bharadhwaj<sup>1*</sup></div>
+    <div class="affils"><sup>1</sup><a href="https://www.jh.edu" target="_blank" rel="noopener">Johns Hopkins University</a><i>·</i><sup>2</sup><a href="https://www.jhuapl.edu" target="_blank" rel="noopener">Johns Hopkins University Applied Physics Laboratory</a><i>·</i><sup>*</sup>equal advising</div>
+    <div class="btns"><span class="btn dis">Paper · coming soon</span><a class="btn" href="#">Code</a><a class="btn" href="#approach">How it works ↓</a></div>
   </div>
+</section>
+<div class="switch"><div id="switch"></div></div>
+<div class="heroViz">
   <div class="world" id="world">
     <div class="scrim" id="scrim"></div>
     <div class="modes" id="modes"><button data-m="orbit">Orbit</button><button data-m="follow">Follow</button><button data-m="top">Top</button></div>
@@ -243,8 +244,7 @@
       <div class="hint"><span>drag to look around</span><span>hover a dot</span><span>pause, then hover the video</span><span><span style="color:#e8703a">▮</span> an object moved</span><span id="speedNote"></span></div>
     </div>
   </div>
- </div>
-</section>
+</div>
 
 <section id="approach" class="wide">
   <div class="eyebrow">Approach</div>
@@ -323,6 +323,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261005002217"></script>
+<script type="module" src="app.js?v=20261005040635"></script>
 </body>
 </html>
