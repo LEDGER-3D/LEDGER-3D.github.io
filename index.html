@@ -236,7 +236,7 @@
     <div class="scrim" id="scrim"></div>
     <div class="modes" id="modes"><button data-m="orbit">Orbit</button><button data-m="follow">Follow</button><button data-m="top">Top</button></div>
     <div class="count" id="count"></div>
-    <div class="pip" id="vpane"><video id="vid" muted playsinline loop autoplay preload="auto"></video>
+    <div class="pip" id="vpane"><video id="vid" muted playsinline loop autoplay preload="metadata"></video>
       <div class="lbl">what you saw</div><div class="paused-hint" id="phint">hover anything</div><button class="pipx" id="pipx" aria-label="enlarge the video">⤢</button></div>
     <div class="hud">
       <div class="ticker" id="ticker"></div>
@@ -252,7 +252,7 @@
   <div class="eyebrow">Overview</div>
   <h2>Overview Video Walkthrough</h2>
   <p class="sdesc">LEDGER (Long-horizon Egocentric Descriptions, Geometry, and Event Records) builds a memory of objects from an egocentric video. It finds the objects in sampled frames, places each one in 3D using the camera pose, and links repeated sightings of the same object over time. Objects stay in memory after they leave view, including ones the wearer never touches. Each object's history is split into rest segments: a move is recorded only when several observations agree, so small localization errors are not counted as moves. Each segment also gets a short description, for example what a container held. Questions are answered later from these records as text, without the video.</p>
-  <div class="wtw"><video id="wt" src="assets/overview.mp4" poster="assets/overview_poster.jpg" muted playsinline loop controls autoplay preload="metadata"></video></div>
+  <div class="wtw"><video id="wt" src="assets/overview.mp4" poster="assets/overview_poster.jpg" muted playsinline loop controls preload="none"></video></div>
 </section>
 
 <section id="stitch-s" class="wide">
@@ -325,6 +325,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261006133425"></script>
+<script type="module" src="app.js?v=20261006140553"></script>
 </body>
 </html>

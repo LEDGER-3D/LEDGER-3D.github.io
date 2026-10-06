@@ -56,7 +56,7 @@ async function getDS(name) {
   const A = `assets/${name}/`;
   const [D, task] = await Promise.all([fetch(A + "data.json").then((r) => r.json()), fetch(A + "task.json").then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
   const sprite = await loadImg(A + D.sprite.file);
-  let pts = null; try { const r = await fetch(A + "points.bin"); if (r.ok) pts = await r.arrayBuffer(); } catch (e) { /* none */ }
+  const pts = null;                                                // (old sparse cloud no longer fetched: the fused dense.bin replaces it)
   const objById = new Map(D.objects.map((o) => [o.id, o])), detsByOb = new Map();
   D.frames.forEach((f, fi) => f.dets.forEach((d) => { if (d.ob === undefined) return; if (!detsByOb.has(d.ob)) detsByOb.set(d.ob, []); detsByOb.get(d.ob).push({ ...d, t: f.t, fi }); }));
   const moves = D.parts ? [] : D.objects.filter((o) => o.segs.length >= 2 && o.segs.every((s) => s.w));   // no moves across unregistered scenes
@@ -485,7 +485,8 @@ new ResizeObserver(() => tiles.length && sizeC()).observe(cv);
 cv.addEventListener("pointermove", (e) => { const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; hoverPile = piles.find((p) => Math.abs(p.px - x) < p.s * 0.7 && Math.abs(p.py - y) < p.s * 0.7) || null; });
 cv.addEventListener("pointerleave", () => (hoverPile = null));
 new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting && cstep === 0 && !Q.get("cstep") && !autoStep) { let i = 0; autoStep = setInterval(() => { if (++i > 3) { clearInterval(autoStep); autoStep = null; return; } setStep(i); }, 2200); } }), { threshold: 0.5 }).observe(cv);
-function frameC() {
+let cVisible = false; new IntersectionObserver((es) => es.forEach((e) => (cVisible = e.isIntersecting)), { threshold: 0 }).observe(cv);
+function frameC() { if (!cVisible) return;
   const W = cv.clientWidth, H = cv.clientHeight, T = X.D.sprite.tile; cx2.clearRect(0, 0, W, H);
   for (const t of tiles) { t.x += (t.tx - t.x) * 0.12; t.y += (t.ty - t.y) * 0.12; t.s += (t.ts - t.s) * 0.12; t.a += (t.ta - t.a) * 0.12; }
   for (const t of tiles) { if (t.a < 0.02) continue; const [sx, sy] = tileXY(X, t.d.id); cx2.globalAlpha = t.a; cx2.drawImage(X.sprite, sx, sy, T, T, t.x, t.y, t.s, t.s); }
@@ -693,11 +694,13 @@ trackP.then((J) => {
   let h = `<div></div>`; C.forEach((c, k) => { if (k === 3) h += `<div></div>`; h += `<div class="th">${c.after ? J.days[1] : J.days[0]} · ${rel(c)}</div>`; });
   for (const [row, lab, sub] of [["pt", "Point tracker", "AllTracker, seeded before the cut"], ["mem", "LEDGER", "memory objects, same colour = same object"]]) {
     h += `<div class="rl">${lab}<small>${sub}</small></div>`;
-    C.forEach((c, k) => { if (k === 3) h += `<div class="cutc">cut</div>`; h += `<img src="assets/stitch/track/${row}_${k}.jpg" alt="${lab}, ${rel(c)}">`; });
+    C.forEach((c, k) => { if (k === 3) h += `<div class="cutc">cut</div>`; h += `<img loading="lazy" decoding="async" src="assets/stitch/track/${row}_${k}.jpg" alt="${lab}, ${rel(c)}">`; });
   }
   G.innerHTML = h; G.insertAdjacentHTML("afterend", `<div class="trackleg">${Object.entries(J.objects).map(([id, n]) => `<span><i style="background:${J.colors[id]}"></i>${n}</span>`).join("")}</div>`);
 });
-{ const v = $("wt"); v.addEventListener("play", () => track("walkthrough played"), { once: true }); new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? v.play().catch(() => {}) : v.pause())), { threshold: 0.4 }).observe(v); }
+{ const v = $("wt"); v.addEventListener("play", () => track("walkthrough played"), { once: true }); let wtUser = false;
+  v.addEventListener("pause", () => { if (v.dataset.auto !== "1") wtUser = true; v.dataset.auto = ""; });   // a pause by the viewer is kept
+  v.addEventListener("play", () => (wtUser = false)); new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { if (!wtUser) v.play().catch(() => {}); } else if (!v.paused) { v.dataset.auto = "1"; v.pause(); } }), { threshold: 0.4 }).observe(v); }
 
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {
