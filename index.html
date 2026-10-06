@@ -220,7 +220,7 @@
 </script>
 </head>
 <body>
-<nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#approach">Approach</a><a href="#stitch-s">Stitched</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
+<nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#approach">Overview</a><a href="#stitch-s">Stitched</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
 
 <section id="watch" class="heroW">
   <div class="heroText" id="heroText">
@@ -249,10 +249,10 @@
 </div>
 
 <section id="approach" class="wide">
-  <div class="eyebrow">Approach</div>
-  <h2>How LEDGER works.</h2>
+  <div class="eyebrow">Overview</div>
+  <h2>Overview Video Walkthrough</h2>
   <p class="sdesc">LEDGER (Long-horizon Egocentric Descriptions, Geometry, and Event Records) builds a memory of objects from an egocentric video. It finds the objects in sampled frames, places each one in 3D using the camera pose, and links repeated sightings of the same object over time. Objects stay in memory after they leave view, including ones the wearer never touches. Each object's history is split into rest segments: a move is recorded only when several observations agree, so small localization errors are not counted as moves. Each segment also gets a short description, for example what a container held. Questions are answered later from these records as text, without the video.</p>
-  <div class="wtw"><video id="wt" src="assets/walkthrough.mp4" poster="assets/walkthrough_poster.jpg" muted playsinline loop controls autoplay preload="metadata"></video></div>
+  <div class="wtw"><video id="wt" src="assets/overview.mp4" poster="assets/overview_poster.jpg" muted playsinline loop controls autoplay preload="metadata"></video></div>
 </section>
 
 <section id="stitch-s" class="wide">
@@ -325,6 +325,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261005201754"></script>
+<script type="module" src="app.js?v=20261006133425"></script>
 </body>
 </html>
