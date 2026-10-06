@@ -636,7 +636,8 @@ new IntersectionObserver((es) => es.forEach(async (e) => { if (!e.isIntersecting
   SY = await fetch(SX.A + "story.json").then((r) => (r.ok ? r.json() : null)).catch(() => null); archSetup(); }), { rootMargin: "500px" }).observe(archEl);
 function archSetup() {
   const D = SX.D, P = SY.parts, mm = fmt; arch.set(SX); arch.noArrows = true; arch.avoid = [qcall];
-  const R = arch.rad, c = arch.ctr; arch.fly(c, c.clone().add(new THREE.Vector3(0, R * 0.86, R * 0.84)), true);
+  const R = arch.rad, c = arch.ctr, fitW = Math.min(3.6, Math.max(1, 2.1 / (archEl.clientWidth / archEl.clientHeight)));   // narrow (phone) views: back off so every island fits
+  arch.fly(c, c.clone().add(new THREE.Vector3(0, R * 0.86 * fitW, R * 0.84 * fitW)), true);
   for (const p of arch.paths) { p.now.material.transparent = true; p.now.material.opacity = 0.45; }                // quieter paths here
   $("stitchCounts").innerHTML = P.map((p, i) => `<span><b>Scene ${i + 1} · ${esc(p.label)}</b> · ${mm(p.t1 - p.t0)} · ${p.objects} objects</span>`).join("") + `<span class="one">→ one memory, ${D.objects.length} objects</span>`;
   islEl.innerHTML = ""; islLab = P.map((p, i) => { const d = document.createElement("div"); d.innerHTML = `Scene ${i + 1} · ${esc(p.label)}<small>${mm(p.t0)}–${mm(p.t1)} · ${esc(p.src)}</small>`; islEl.appendChild(d);
@@ -688,7 +689,7 @@ function frameArch(now) {
 // ================================================================== tracking across a cut (point tracker vs LEDGER) + the walkthrough video
 trackP.then((J) => {
   if (!J) return; const G = $("trackgrid"), C = J.cells, mm = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-  const rel = (c) => { const d = Math.round(c.t - J.cut); return d < 0 ? `${-d} s before the cut` : `${d} s after`; };
+  const rel = (c) => { const d = Math.round(c.t - J.cut); return d < 0 ? `−${-d} s` : `+${d} s`; };     // seconds from the cut
   let h = `<div></div>`; C.forEach((c, k) => { if (k === 3) h += `<div></div>`; h += `<div class="th">${c.after ? J.days[1] : J.days[0]} · ${rel(c)}</div>`; });
   for (const [row, lab, sub] of [["pt", "Point tracker", "AllTracker, seeded before the cut"], ["mem", "LEDGER", "memory objects, same colour = same object"]]) {
     h += `<div class="rl">${lab}<small>${sub}</small></div>`;

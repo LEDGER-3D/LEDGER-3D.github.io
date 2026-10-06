@@ -76,7 +76,7 @@
   .pipx { position:absolute; right:8px; top:8px; width:26px; height:26px; border-radius:7px; border:1px solid #ffffff33; background:#000a; color:#fff; cursor:pointer; font-size:13px; line-height:1; z-index:2; }
   .hud { position:absolute; left:clamp(16px,3vw,40px); right:clamp(16px,3vw,40px); bottom:14px; z-index:6; }
   .hud .ticker { position:static; min-height:19px; font-size:14px; }
-  @media (max-width:700px) { .pip { width:44vw; bottom:150px; } .modes { top:auto; bottom:150px; right:12px; } .count { display:none; } .switch button small { display:none; } .switch button { padding:7px 11px; } .hud .hint { display:none; } }
+  @media (max-width:700px) { .pip { width:44vw; bottom:150px; } .modes, .heroViz .modes { top:auto; bottom:150px; right:12px; } .modes button { padding:5px 9px; font-size:11px; } .count { display:none; } .switch button small { display:none; } .switch button { padding:7px 11px; } .hud .hint { display:none; } }
   /* ask: rolling questions */
   .ask2 { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); gap:14px; }
   @media (max-width:900px) { .ask2 { grid-template-columns:1fr; } }
@@ -130,7 +130,8 @@
   .trackgrid .cutc { align-self:stretch; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#e8703a; font-size:11px; writing-mode:vertical-rl; letter-spacing:.1em;
                      border-left:2px dashed #e8703a; border-right:0; margin-left:12px; }
   .trackleg { display:flex; gap:14px; flex-wrap:wrap; margin-top:10px; font-size:12px; color:var(--ink2); } .trackleg i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
-  @media (max-width:880px) { .trackgrid { grid-template-columns:70px repeat(3,minmax(0,1fr)) 14px repeat(3,minmax(0,1fr)); gap:3px; } }
+  @media (max-width:880px) { .trackgrid { grid-template-columns:64px repeat(3,minmax(0,1fr)) 14px repeat(3,minmax(0,1fr)); gap:3px; } .trackgrid .th { font-size:9px; } .trackgrid .rl { font-size:11px; } .trackgrid .rl small { display:none; } }
+  @media (max-width:700px) { .arch .qcall { max-width:none; right:10px; left:10px; bottom:10px; padding:9px 11px; } .arch .qcall .qq { font-size:14px; } .arch .qcall .qr { display:none; } .archw .arch { height:min(70vh,560px); } }
   .archw { margin-top:6px; } .arch { aspect-ratio:auto; height:min(72vh,700px); min-height:420px; background:radial-gradient(ellipse at 50% 40%, #121820, #0b0d10 75%); }
   .isl { position:absolute; inset:0; pointer-events:none; z-index:4; }
   .isl div { position:absolute; left:0; top:0; transform:translate(-50%,-100%); text-align:center; white-space:nowrap; font:600 13px Inter,-apple-system,sans-serif; color:#cfd3da;
@@ -180,6 +181,7 @@
   .steps button { background:var(--bg2); color:var(--ink2); border:0; padding:10px 16px; cursor:pointer; font-size:13px; border-right:1px solid var(--line); }
   .steps button:last-child { border-right:0; } .steps button.on { background:#1d2632; color:#fff; }
   .steps b { font:700 15px ui-monospace,Menlo,monospace; margin-right:6px; color:#fff; }
+  @media (max-width:700px) { .steps { width:100%; } .steps button { flex:1 1 0; padding:8px 4px; font-size:11px; line-height:1.25; } .steps b { display:block; font-size:13px; margin:0; } }
   #collapse { width:100%; height:600px; display:block; background:var(--panel); border:1px solid var(--line); border-radius:20px; }
   .merges { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
   .merge { display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:8px 12px; font-size:13px; color:var(--ink2); cursor:pointer; }
@@ -323,6 +325,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261005040635"></script>
+<script type="module" src="app.js?v=20261005201754"></script>
 </body>
 </html>
