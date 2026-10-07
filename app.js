@@ -700,7 +700,11 @@ trackP.then((J) => {
 });
 { const v = $("wt"); v.addEventListener("play", () => track("walkthrough played"), { once: true }); let wtUser = false;
   v.addEventListener("pause", () => { if (v.dataset.auto !== "1") wtUser = true; v.dataset.auto = ""; });   // a pause by the viewer is kept
-  v.addEventListener("play", () => (wtUser = false)); new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { if (!wtUser) v.play().catch(() => {}); } else if (!v.paused) { v.dataset.auto = "1"; v.pause(); } }), { threshold: 0.4 }).observe(v); }
+  v.addEventListener("play", () => (wtUser = false));
+  const snd = $("wtSound"), sndLabel = () => (snd.textContent = v.muted ? "🔊 Sound on" : "🔇 Mute");                 // videos only autoplay muted; music is opt-in
+  snd.onclick = () => { v.muted = !v.muted; sndLabel();
+    if (!v.muted) { track("overview sound on"); wtUser = false; v.play().catch(() => { v.muted = true; sndLabel(); v.play().catch(() => {}); }); } };   // if sound is refused, keep playing muted
+  v.addEventListener("volumechange", sndLabel); new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { if (!wtUser) v.play().catch(() => {}); } else if (!v.paused) { v.dataset.auto = "1"; v.pause(); } }), { threshold: 0.4 }).observe(v); }
 
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {

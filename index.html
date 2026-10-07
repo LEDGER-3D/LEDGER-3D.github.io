@@ -120,7 +120,9 @@
   .stitchc { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 12px; font-size:13px; color:var(--ink2); }
   .stitchc span { border:1px solid var(--line); border-radius:999px; padding:5px 12px; background:var(--bg2); } .stitchc b { color:#fff; font-weight:600; }
   .stitchc .one { border-color:#3987e5; color:#cfe3fb; background:#13223a; }
-  .wtw { border:1px solid var(--line); border-radius:20px; overflow:hidden; background:#07080a; }
+  .wtw { position:relative; border:1px solid var(--line); border-radius:20px; overflow:hidden; background:#07080a; }
+  .sound { position:absolute; right:14px; top:14px; z-index:2; border:1px solid #ffffff40; background:#0b0d10cc; color:#fff; border-radius:999px; padding:7px 14px; font-size:13px; cursor:pointer; backdrop-filter:blur(6px); }
+  .sound:hover { border-color:#ffffff80; }
   .wtw video { display:block; width:100%; height:auto; aspect-ratio:16/9; background:#07080a; }
   .trackw { margin-top:34px; } .trackw h3 { font-size:clamp(24px,2.6vw,34px); letter-spacing:-.02em; margin:0 0 12px; font-weight:750; }
   .trackgrid { display:grid; grid-template-columns:118px repeat(3,minmax(0,1fr)) 26px repeat(3,minmax(0,1fr)); gap:6px; align-items:center; }
@@ -252,7 +254,7 @@
   <div class="eyebrow">Overview</div>
   <h2>Overview Video Walkthrough</h2>
   <p class="sdesc">LEDGER (Long-horizon Egocentric Descriptions, Geometry, and Event Records) builds a memory of objects from an egocentric video. It finds the objects in sampled frames, places each one in 3D using the camera pose, and links repeated sightings of the same object over time. Objects stay in memory after they leave view, including ones the wearer never touches. Each object's history is split into rest segments: a move is recorded only when several observations agree, so small localization errors are not counted as moves. Each segment also gets a short description, for example what a container held. Questions are answered later from these records as text, without the video.</p>
-  <div class="wtw"><video id="wt" src="assets/overview.mp4" poster="assets/overview_poster.jpg" muted playsinline loop controls preload="none"></video></div>
+  <div class="wtw"><video id="wt" src="assets/overview.mp4" poster="assets/overview_poster.jpg" muted playsinline loop controls preload="none"></video><button class="sound" id="wtSound" aria-label="turn the music on">🔊 Sound on</button></div>
 </section>
 
 <section id="stitch-s" class="wide">
@@ -325,6 +327,6 @@
   </div>
 </section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261007035929"></script>
+<script type="module" src="app.js?v=20261007125438"></script>
 </body>
 </html>
