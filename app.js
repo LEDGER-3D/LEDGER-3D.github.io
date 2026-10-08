@@ -706,6 +706,11 @@ trackP.then((J) => {
     if (!v.muted) { track("overview sound on"); wtUser = false; v.play().catch(() => { v.muted = true; sndLabel(); v.play().catch(() => {}); }); } };   // if sound is refused, keep playing muted
   v.addEventListener("volumechange", sndLabel); new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { if (!wtUser) v.play().catch(() => {}); } else if (!v.paused) { v.dataset.auto = "1"; v.pause(); } }), { threshold: 0.4 }).observe(v); }
 
+// ================================================================== citation: copy the BibTeX
+$("copyBib").onclick = async () => { const b = $("copyBib"), txt = $("bib").textContent; track("copy bibtex");
+  try { await navigator.clipboard.writeText(txt); } catch (e) { const r = document.createRange(); r.selectNodeContents($("bib")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand("copy"); }
+  b.textContent = "Copied"; setTimeout(() => (b.textContent = "Copy"), 1600); };
+
 // ================================================================== CHARTS
 function barChart(id, rows, unit) {
   const el = $(id), svg = el.querySelector("svg"), tip = el.querySelector(".tip"), W = 360, rh = 34, H = rows.length * rh + 10, mx = Math.max(...rows.map((r) => r[1])) * 1.12;

@@ -67,6 +67,11 @@
   .authors sup, .affils sup { font-size:.62em; color:#9cc3f5; margin-left:1px; }
   .affils { font-size:clamp(12px,1vw,15px); color:var(--ink2); margin-top:6px; } .affils a { text-decoration:none; pointer-events:auto; } .affils a:hover { color:#fff; }
   .btn.dis { color:var(--ink3); cursor:default; }
+  .bib { position:relative; }
+  .bib pre { margin:0; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px 20px; padding-right:90px; overflow-x:auto;
+             font:13px/1.6 ui-monospace,Menlo,Consolas,monospace; color:#cfd3da; white-space:pre; max-width:100%; }
+  .bib #copyBib { position:absolute; top:12px; right:12px; cursor:pointer; }
+  @media (max-width:700px) { .bib #copyBib { position:static; margin:0 0 8px; } .bib pre { padding-right:20px; font-size:12px; } }
   .btn svg { width:14px; height:14px; margin-right:6px; vertical-align:-2px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .modes { position:absolute; right:clamp(16px,3vw,40px); top:106px; z-index:6; display:flex; gap:3px; background:#0d0f12cc; backdrop-filter:blur(10px); border:1px solid var(--line); border-radius:999px; padding:4px; }
   .modes button { border:0; background:transparent; color:var(--ink2); padding:6px 13px; border-radius:999px; cursor:pointer; font-size:12px; }
@@ -223,14 +228,14 @@
 </script>
 </head>
 <body>
-<nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#approach">Overview</a><a href="#stitch-s">Stitched</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a></nav>
+<nav><b>LEDGER</b><a href="#watch">Watch</a><a href="#approach">Overview</a><a href="#stitch-s">Stitched</a><a href="#pipeline">Pipeline</a><a href="#collapse-s">Collapse</a><a href="#ask">Ask</a><a href="#results">Results</a><a href="#cite">Cite</a></nav>
 
 <section id="watch" class="heroW">
   <div class="heroText" id="heroText">
     <h1 class="title"><span>Never Look Back: Understanding Persistence</span><span class="grad">in 3D Object Memory from Egocentric Videos</span></h1>
     <div class="authors">Shravan S Chaudhari<sup>1</sup><i>·</i>William Paul<sup>2</sup><i>·</i>Suchi Saria<sup>1</sup><i>·</i>Rama Chellappa<sup>1*</sup><i>·</i>Homanga Bharadhwaj<sup>1*</sup></div>
     <div class="affils"><sup>1</sup><a href="https://www.jh.edu" target="_blank" rel="noopener">Johns Hopkins University</a><i>·</i><sup>2</sup><a href="https://www.jhuapl.edu" target="_blank" rel="noopener">Johns Hopkins University Applied Physics Laboratory</a><i>·</i><sup>*</sup>equal advising</div>
-    <div class="btns"><a class="btn" href="paper.pdf" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Paper</a><span class="btn dis" title="the arXiv version is on its way"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>arXiv · coming soon</span><a class="btn" href="https://github.com/LEDGER-3D/LEDGER" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Code</a><a class="btn" href="#approach">How it works ↓</a></div>
+    <div class="btns"><a class="btn" href="paper.pdf" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Paper</a><a class="btn" href="https://arxiv.org/abs/2610.10538" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>arXiv</a><a class="btn" href="https://github.com/LEDGER-3D/LEDGER" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>Code</a><a class="btn" href="#approach">How it works ↓</a></div>
   </div>
 </section>
 <div class="switch"><div id="switch"></div></div>
@@ -327,7 +332,19 @@
     <div class="chart" id="c3"><div class="mini">UCS-Bench · accuracy vs video length</div><svg></svg><div class="tip"></div></div>
   </div>
 </section>
+<section id="cite">
+  <h2>Citation</h2>
+  <div class="bib"><button class="btn" id="copyBib" type="button">Copy</button><pre id="bib">@misc{chaudhari2026lookbackunderstandingpersistence,
+      title={Never Look Back: Understanding Persistence in 3D Object Memory from Egocentric Videos}, 
+      author={Shravan Chaudhari and William Paul and Suchi Saria and Rama Chellappa and Homanga Bharadhwaj},
+      year={2026},
+      eprint={2610.10538},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2610.10538}, 
+}</pre></div>
+</section>
 <footer>LEDGER · Johns Hopkins University · Johns Hopkins University Applied Physics Laboratory</footer>
-<script type="module" src="app.js?v=20261007141925"></script>
+<script type="module" src="app.js?v=20261007225753"></script>
 </body>
 </html>
